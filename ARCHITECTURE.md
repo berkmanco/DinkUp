@@ -39,14 +39,14 @@ A self-service web application to coordinate pickleball games among friends and 
   - Proposed date/time
   - Minimum players needed (typically 4)
   - Maximum players (typically 8, but flexible)
-  - Status: "proposed", "gathering_interest", "confirmed", "cancelled", "completed"
+  - Status: "proposed", "confirmed", "cancelled", "completed"
   - Court booking reference (if booked)
   - Court number
   - Court location
   - CourtReserve availability status (checked before proposing)
   - Booking deadline (14 days in advance constraint)
   - Cost per hour (fixed: $16/hr, set by CourtReserve)
-  - Cost per player (calculated: cost_per_hour * duration / number_of_committed_players)
+  - Cost per player (calculated dynamically: cost_per_hour * duration / number_of_committed_players)
   - Duration (typically 1 hour)
 
 ### 4. Session Participants
@@ -81,12 +81,13 @@ A self-service web application to coordinate pickleball games among friends and 
 id: uuid (primary key)
 name: text
 description: text
+owner_id: uuid (references auth.users) -- MVP: single admin, but pool_admins table ready for multi-admin
 created_at: timestamp
 updated_at: timestamp
 is_active: boolean
 ```
 
-#### `pool_admins` (junction table for multi-admin support)
+#### `pool_admins` (junction table for multi-admin support - not in MVP but architecture ready)
 ```sql
 id: uuid (primary key)
 pool_id: uuid (references pools)
@@ -138,16 +139,17 @@ proposed_time: time
 duration_hours: decimal (default 1.0)
 min_players: integer (default 4)
 max_players: integer (default 8)
-status: text (proposed, gathering_interest, confirmed, cancelled, completed)
+status: text (proposed, confirmed, cancelled, completed) -- MVP: removed "gathering_interest"
 court_booking_id: text (CourtReserve reference)
 court_number: text
 court_location: text
-court_available: boolean (checked from CourtReserve)
+court_available: boolean (MVP: manual check, but ready for automation)
 cost_per_hour: decimal (default 16.00, set by CourtReserve)
+cost_per_player: decimal (calculated dynamically: cost_per_hour * duration / committed_players)
 booking_deadline: timestamp (14 days before proposed_date)
-is_recurring: boolean (future: weekly/monthly recurring)
-recurring_pattern: jsonb (future: frequency, end_date, etc.)
-created_by: uuid (references players, can be admin or player)
+is_recurring: boolean (MVP: false, but architecture ready for recurring)
+recurring_pattern: jsonb (MVP: null, but ready for frequency, end_date, etc.)
+created_by: uuid (references players, MVP: admin only, but ready for player proposals)
 created_at: timestamp
 updated_at: timestamp
 ```
@@ -174,7 +176,7 @@ venmo_payment_link: text (generated Venmo link/QR code)
 stripe_payment_intent_id: text (nullable, if using Stripe)
 venmo_request_sent_at: timestamp (when payment request was sent)
 payment_date: timestamp
-status: text (pending, verified, disputed, refunded, no_refund_cancelled)
+status: text (pending, paid, refunded) -- MVP: simplified from complex enum
 refunded_at: timestamp (if player cancelled and got refund)
 cancelled_within_24h: boolean (cancelled too late for refund)
 replacement_found: boolean (if replacement took their spot)
@@ -298,7 +300,7 @@ created_at: timestamp
    - Select pool
    - Choose date/time
    - System checks CourtReserve availability (if API available, or manual check)
-   - If available, session is created with status "gathering_interest"
+   - If available, session is created with status "proposed"
    - If not available, system suggests alternative nearby times
 2. **All active pool players** receive notification about new session
 3. **Players opt-in themselves**:
