@@ -99,15 +99,17 @@ Each court booking on CourtReserve requires 4 players:
 
 ### 5. Payments
 - Track payments received (Venmo only - digital payments)
-- Link to session participants
+- Link to session participants (guests only — admin has no payment record)
 - Fields:
   - Amount
   - Payment method: "venmo" (or "stripe" if enabled)
   - Venmo transaction ID (for reconciliation)
-  - Venmo payment link/QR code (generated when player commits)
+  - Venmo payment link/QR code (generated at payment deadline)
   - Payment date
-  - Status: "pending", "verified", "disputed", "refunded", "no_refund_cancelled"
+  - Status: "pending", "paid", "refunded", "forgiven"
   - Notes
+
+**Note**: Admin always plays but doesn't have a payment record — they front the $9/court when booking.
 
 ## Database Schema
 
@@ -221,13 +223,18 @@ venmo_payment_link: text (generated Venmo link/QR code)
 stripe_payment_intent_id: text (nullable, if using Stripe)
 venmo_request_sent_at: timestamp (when payment request was sent)
 payment_date: timestamp
-status: text (pending, paid, refunded) -- MVP: simplified from complex enum
+status: text (pending, paid, refunded, forgiven)
+  -- pending: Venmo request sent, awaiting payment
+  -- paid: Payment received and verified
+  -- refunded: Session cancelled or replacement found
+  -- forgiven: Admin decided not to collect (dropout edge case)
 refunded_at: timestamp (if player cancelled and got refund)
-cancelled_within_24h: boolean (cancelled too late for refund)
 replacement_found: boolean (if replacement took their spot)
 notes: text
 created_at: timestamp
 ```
+
+**Note**: Admin (Mike) does NOT have a payment record — admin cost is fronted when booking the court.
 
 ## User Roles & Permissions
 
@@ -237,10 +244,13 @@ created_at: timestamp
 - Add/remove players from pools
 - Propose sessions (with CourtReserve availability check)
 - **Book courts** when session reaches minimum (only admins can book - only you have membership)
+- **Always plays** in sessions they create (admin is always a participant)
+- **Fronts court cost** ($9/court member rate) when booking — no payment record needed
 - View all pools and sessions
 - Override/approve cancellations if needed
 - View payment dashboard
 - Mark Venmo payments as received (minimal work)
+- Mark payments as "forgiven" if deciding not to collect from dropouts
 - System auto-generates Venmo links (no manual work)
 - **No cash handling** - digital payments only
 
