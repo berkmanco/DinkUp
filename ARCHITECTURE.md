@@ -30,6 +30,7 @@ A self-service web application to coordinate pickleball games among friends and 
 - Attributes:
   - Name
   - Phone number
+  - Email (optional)
   - Venmo account name (required - no cash payments)
   - Preferred payment method (Venmo, or Stripe if enabled)
   - Notification preferences (Email, SMS, or Both)
@@ -39,20 +40,51 @@ A self-service web application to coordinate pickleball games among friends and 
 ### 3. Sessions (Game Proposals)
 - Proposed date/time for a game
 - Belong to a specific pool
-- Can be proposed by admin OR any player in the pool
+- Can be proposed by admin OR any player in the pool (future)
 - Have:
   - Proposed date/time
-  - Minimum players needed (typically 4)
-  - Maximum players (typically 8, but flexible)
+  - Minimum players needed (4 for 1 court)
+  - Maximum players (11 for 2 courts - allows 3 subs max)
   - Status: "proposed", "confirmed", "cancelled", "completed"
   - Court booking reference (if booked)
-  - Court number
+  - Court numbers (array - for adjacent court booking)
   - Court location
   - CourtReserve availability status (checked before proposing)
   - Booking deadline (14 days in advance constraint)
-  - Cost per hour (fixed: $16/hr, set by CourtReserve)
-  - Cost per player (calculated dynamically: cost_per_hour * duration / number_of_committed_players)
-  - Duration (typically 1 hour)
+  - Price per spot: $16/person (fixed by CourtReserve)
+  - Courts needed: calculated (1 court for 4-7 players, 2 courts for 8-11)
+  - Total court cost: $64 per court ($16 × 4 spots)
+  - Duration (30 minute increments, but typically 1 hour)
+
+#### Court & Player Math
+- **1 court**: 4 active players, 0-3 subs rotating → 4-7 players total
+- **2 courts**: 8 active players, 0-3 subs rotating → 8-11 players total
+- Courts should be booked **adjacent** when possible for rotation
+
+#### Cost Model (CourtReserve Booking Structure)
+Each court booking on CourtReserve requires 4 players:
+- **Mike (member)**: $9 per court
+- **3 guest spots**: $16 × 3 = $48 per court
+- **Total per court**: $57
+
+**How costs are split:**
+- Mike always pays $9 per court booked (fixed)
+- The $48 guest portion (per court) is split among ALL guests playing (including subs)
+- More guests = lower cost per guest
+
+**Examples:**
+| Players | Courts | Mike Pays | Guest Pool | # Guests | Per Guest |
+|---------|--------|-----------|------------|----------|-----------|
+| 4       | 1      | $9        | $48        | 3        | $16.00    |
+| 5       | 1      | $9        | $48        | 4        | $12.00    |
+| 6       | 1      | $9        | $48        | 5        | $9.60     |
+| 7       | 1      | $9        | $48        | 6        | $8.00     |
+| 8       | 2      | $18       | $96        | 7        | $13.71    |
+| 9       | 2      | $18       | $96        | 8        | $12.00    |
+| 10      | 2      | $18       | $96        | 9        | $10.67    |
+| 11      | 2      | $18       | $96        | 10       | $9.60     |
+
+**Note**: Mike is listed on BOTH court bookings when 2 courts are needed (pays $9 × 2 = $18)
 
 ### 4. Session Participants
 - Many-to-many relationship between players and sessions
@@ -106,8 +138,9 @@ is_active: boolean
 id: uuid (primary key)
 name: text
 phone: text
+email: text (optional)
 venmo_account: text (required - no cash payments)
-preferred_payment_method: text (venmo, stripe)
+preferred_payment_method: text (venmo)
 notification_preferences: jsonb (email: boolean, sms: boolean)
 is_active: boolean (include/exclude from invitations)
 created_at: timestamp
@@ -139,22 +172,29 @@ used_by: uuid (references players, nullable)
 ```sql
 id: uuid (primary key)
 pool_id: uuid (references pools)
-proposed_date: timestamp
+proposed_date: date
 proposed_time: time
-duration_hours: decimal (default 1.0)
+duration_minutes: integer (default 60, in 30-min increments)
 min_players: integer (default 4)
-max_players: integer (default 8)
-status: text (proposed, confirmed, cancelled, completed) -- MVP: removed "gathering_interest"
-court_booking_id: text (CourtReserve reference)
-court_number: text
+max_players: integer (default 7) -- 1 court + 3 subs
+status: text (proposed, confirmed, cancelled, completed)
+-- Court booking info
+court_booking_ids: text[] (array - for multiple adjacent courts)
+court_numbers: text[] (array - e.g., ['Court 8', 'Court 9'])
 court_location: text
-court_available: boolean (MVP: manual check, but ready for automation)
-cost_per_hour: decimal (default 16.00, set by CourtReserve)
-cost_per_player: decimal (calculated dynamically: cost_per_hour * duration / committed_players)
+courts_needed: integer (calculated: 1 for 4-7 players, 2 for 8-11)
+court_available: boolean (MVP: manual check, ready for automation)
+-- Cost fields (per CourtReserve booking structure)
+admin_cost_per_court: decimal (default 9.00, Mike's member rate)
+guest_pool_per_court: decimal (default 48.00, 3 guest spots × $16)
+-- guest cost calculated at query time: guest_pool_per_court * courts_needed / num_guests
+-- Constraints
 booking_deadline: timestamp (14 days before proposed_date)
-is_recurring: boolean (MVP: false, but architecture ready for recurring)
-recurring_pattern: jsonb (MVP: null, but ready for frequency, end_date, etc.)
-created_by: uuid (references players, MVP: admin only, but ready for player proposals)
+-- Future: recurring
+is_recurring: boolean (default false)
+recurring_pattern: jsonb (null for MVP)
+-- Metadata
+created_by: uuid (references auth.users)
 created_at: timestamp
 updated_at: timestamp
 ```
@@ -211,7 +251,7 @@ created_at: timestamp
 - Opt-in to sessions themselves (self-service)
 - Update their status (commit, maybe, drop out)
 - View their payment history
-- Update their own profile (name, phone, venmo, notification preferences)
+- Update their own profile (name, phone, email, venmo, notification preferences)
 - Receive automatic Venmo payment links/QR codes when committing
 - **Must have Venmo** (no cash payments accepted)
 
@@ -219,57 +259,65 @@ created_at: timestamp
 
 ### Player Journey (Opt-In Flow)
 ```
-1. Player receives notification: "New session available!"
+1. Player receives notification: "New session proposed for Saturday!"
    ↓
 2. Player opens app, sees session details
-   - Date/time
-   - Current signups (e.g., "4 of 8 spots filled")
-   - Cost per player
+   - Date/time, location
+   - Current signups (e.g., "4 of 7 spots filled")
+   - Estimated cost (based on current headcount)
    ↓
 3. Player clicks "I'm In"
+   - Status: "committed" (no payment yet)
+   - Can change mind anytime before payment deadline
    ↓
-4. System automatically:
-   - Sets status: "in_unpaid"
-   - Creates payment record
-   - Sends Venmo payment request
-   - Updates session count (now "5 of 8 spots")
+4. When minimum reached, admin books court
+   - Session status → "confirmed"
+   - Player sees: "Court booked! Payment due 24h before."
    ↓
-5. Player pays via Venmo
+5. Payment deadline (24h before session)
+   - Roster locks
+   - Player receives Venmo request with final amount
    ↓
-6. Admin marks payment as received (or auto-reconciled)
+6. Player pays via Venmo link
    ↓
-7. Status updates to "in_paid"
+7. Admin marks payment as received
+   - Status: "paid"
    ↓
-8. When session reaches minimum, admin books court
-   ↓
-9. Session confirmed, player receives confirmation
+8. Play pickleball!
 ```
 
 ### Admin Journey (Minimal Work)
 ```
-1. Admin (or player) proposes session
+1. Admin proposes session
    - Checks CourtReserve availability
-   - Creates session in app
+   - Creates session in app (date, time, max players)
    ↓
-2. System automatically:
-   - Notifies all pool players
-   - Tracks signups in real-time
+2. System notifies all pool players
+   - "New session proposed for Saturday 1-2pm!"
    ↓
-3. Admin monitors dashboard (optional)
-   - Sees signup count
-   - Sees payment status
+3. Players opt in over time
+   - Admin sees real-time signup count
    ↓
 4. When minimum reached:
-   - System notifies: "Ready to book! 6 players committed"
+   - System notifies: "Ready to book! 5 players committed"
    ↓
-5. Admin books court (one action)
-   - Enters court booking ID
+5. Admin books court on CourtReserve
+   - Fronts $57/court
+   - Enters booking ID in app
    - Session status → "confirmed"
    ↓
-6. System automatically:
-   - Confirms with all players
-   - Sends payment reminders to unpaid
-   - Generates committed players list
+6. Players continue to opt in/out freely
+   ↓
+7. Payment deadline (24h before) - AUTOMATED:
+   - System checks headcount
+   - If below min: Prompts admin to cancel
+   - If at/above min: Locks roster, calculates cost
+   - Sends Venmo requests to all guests
+   ↓
+8. Admin marks payments as received
+   - Dashboard shows who paid/unpaid
+   ↓
+9. Play pickleball!
 ```
 
 ### Cancellation & Replacement Flow
@@ -329,22 +377,74 @@ created_at: timestamp
    - Creates group chat list (just committed players) for admin
 4. **Waitlist management**: If session is full, "maybe" players go on waitlist
 
-### 4. Payment Tracking (Automated - Digital Only)
+### 4. Session Timeline & Booking Strategy
+
+**The Challenge**: Courts book up fast, but you want numbers to settle before collecting payment.
+
+**Solution**: Book early, pay late.
+
+```
+SESSION PROPOSED (up to 14 days out)
+    │
+    ├── Admin checks CourtReserve availability
+    ├── Creates session in app
+    └── Notifies pool players
+    │
+    ▼
+COURT BOOKED (as soon as min players commit)
+    │
+    ├── Admin books court(s) to secure slot
+    ├── Admin fronts $57/court
+    └── Players continue to opt in/out
+    │
+    ▼
+PAYMENT DEADLINE (24 hours before session)
+    │
+    ├── System checks headcount:
+    │   ├── Below minimum? → Cancel court, notify players
+    │   └── At/above minimum? → Continue ↓
+    ├── Roster LOCKS (no more changes)
+    ├── Calculate final cost per guest
+    ├── Send Venmo payment requests
+    └── Players have 24h to pay
+    │
+    ▼
+SESSION TIME
+    │
+    └── Play pickleball!
+    │
+    ▼
+AFTER SESSION
+    │
+    └── Admin reconciles any unpaid (chase via app reminders)
+```
+
+**Cancellation Policy**:
+- **12+ hours before**: Can cancel court on CourtReserve (no penalty?)
+- **System auto-checks** at 24h mark: if below minimum, prompts admin to cancel
+- Players who committed but session cancelled: no payment needed
+
+### 5. Payment Collection (Digital Only)
+
+**Timing**: Payment requests sent at **24 hours before session** (after roster locks)
+
 **Flow:**
-1. **When player opts in**:
-   - System calculates cost per player: `cost_per_hour * duration / number_of_committed_players`
-   - System automatically creates payment record
-   - System generates Venmo payment link/QR code (required - no cash)
-   - Player receives Venmo payment request immediately
-2. **Payment reconciliation**:
-   - Player pays via generated Venmo link
-   - Admin verifies payment (or future: auto-reconcile if Venmo API available)
-   - System auto-updates status to "in_paid" when payment verified
-   - Auto-send reminder if payment not received after 24 hours
-3. **Admin fronts money** when booking court ($16/hr total)
-4. **Payment dashboard** shows who has/hasn't paid at a glance
-5. **Cost calculation**: Updates dynamically as more players commit (cost per player decreases)
-6. **No cash handling** - all payments digital (Venmo required)
+1. At payment deadline, system calculates final guest cost:
+   - `guest_cost = ($48 × courts) ÷ number_of_guests`
+2. System generates Venmo payment links for each guest
+3. Players receive notification with amount and Venmo link
+4. **Mike's cost** ($9/court) is automatic (he fronted it when booking)
+5. Admin marks payments as received
+6. **No recalculation** - rate is locked at payment deadline
+
+**Cancellation/Dropout Handling**:
+- **Before payment deadline**: Can drop out freely, no payment owed
+- **After payment deadline**: 
+  - Already paid? Must find replacement or forfeit payment
+  - Not yet paid? Still owe (but can find replacement)
+- **If replacement found**: Original player is off the hook
+
+**No cash handling** - all payments digital (Venmo required)
 
 ### 5. Registration Flow (One-Time Use Links + Magic Links)
 **Flow:**
@@ -365,41 +465,50 @@ created_at: timestamp
 8. Player receives confirmation and can immediately see active sessions
 
 **Auth for Returning Players:**
-- Players can log in via magic link using their email
+- Players can log in via magic link using their email (or SMS code based auth?)
 - No password needed (passwordless)
 - Works seamlessly on mobile
 
 ### 6. Cancellation & Replacement Flow (Self-Service)
+
+**Key dates:**
+- **Payment deadline**: 24 hours before session (roster locks, payments sent)
+- **Court cancellation window**: 12+ hours before session
+
 **Flow:**
+
+**BEFORE Payment Deadline (>24h before session):**
+- Player can drop out freely, no payment owed
+- System updates headcount
+- If someone from waitlist wants in, they're promoted
+- **No money has changed hands yet** - clean and simple
+
+**AFTER Payment Deadline (<24h before session):**
 1. **Player needs to drop out**:
-   - Player clicks "Drop Out" on their session
-   - **Cancellation Policy** (protects admin from eating costs):
-     - **>24 hours before**: Full refund (time to find replacement)
-     - **<24 hours before**: No refund UNLESS replacement found
-   - **If paid and >24h before**:
-     - System marks payment as "refunded"
-     - Admin processes refund via Venmo
-     - System tries to fill from waitlist immediately
-   - **If paid and <24h before**:
-     - System shows warning: "Cancelling within 24 hours means no refund unless you find a replacement"
-     - Player can still cancel
-     - System tries to fill from waitlist (if replacement found, original player gets refund)
-     - **If no replacement found**: No refund (admin keeps payment)
-   - **If unpaid**: Simply removes commitment
-   - System recalculates cost per player (fewer players = higher cost per person)
-   - System notifies admin and waitlist players
-2. **Automatic replacement**:
-   - If session was full, first "maybe" player is automatically promoted to "in_unpaid"
-   - System sends notification: "A spot opened up! You're in if you commit"
-   - New player gets Venmo payment request automatically
-   - **If replacement found**: Original player gets refund (replacement pays)
-   - Cost per player recalculates again
-3. **Last-minute cancellations** (<24 hours):
-   - System warns player: "No refund unless replacement found (court already booked)"
-   - Player can still cancel
-   - System aggressively tries to fill from waitlist
-   - **If replacement found**: Original player gets refund, replacement pays
-   - **If no replacement**: No refund (admin keeps payment, protects admin from eating cost)
+   - Player clicks "Drop Out"
+   - System warns: "Payment has been requested. You still owe unless you find a replacement."
+   - Player can still cancel their spot
+   
+2. **If player already paid**:
+   - Payment stays with admin (no automatic refund)
+   - If replacement found: Admin refunds original player manually
+   - If no replacement: Admin keeps payment (covers the cost)
+
+3. **If player hasn't paid yet**:
+   - They still owe their share (can find replacement to get off hook)
+   - System continues to send reminders
+   - Admin can mark as "forgiven" if needed
+
+4. **Replacement handling**:
+   - If session was full, first waitlist player is promoted
+   - Replacement pays the SAME locked rate
+   - If replacement found, original player is off the hook
+
+**Session cancellation (below minimum):**
+- If at 24h mark headcount < minimum, admin is prompted to cancel
+- Admin cancels court on CourtReserve (12+ hours = no penalty)
+- System notifies all players: "Session cancelled - not enough players"
+- No payments owed
 
 ## Notification System
 
@@ -461,8 +570,8 @@ created_at: timestamp
 - Admin checks availability manually before proposing
 - Admin marks court as "available" when creating session
 - System prompts admin when session ready to book
-- Admin books court manually
-- Admin enters court_booking_id, court_number, court_location into system
+- Admin books court manually (books adjacent courts when 2 needed)
+- Admin enters court_booking_ids, court_numbers, court_location into system
 - System tracks booking status
 
 **Phase 2 (Explore)**: Scraping or API integration
@@ -474,6 +583,18 @@ created_at: timestamp
 - Real-time availability checking
 
 **Note**: Recurring sessions would be ideal but depends on CourtReserve capabilities
+
+**⚠️ CourtReserve Credentials - NOT Stored**
+We will NOT store CourtReserve login credentials in the database because:
+- Security risk if database is compromised
+- Likely violates CourtReserve ToS
+- Credentials could change/expire unpredictably
+- Manual booking is quick enough (one click per session)
+
+Future automation options (if needed):
+- Browser extension that runs locally with your credentials
+- Official API if CourtReserve releases one
+- Session token caching (less risky than full credentials)
 
 ### Payment Integration (Digital Only - No Cash)
 
@@ -729,11 +850,42 @@ src/
 
 **Decision**: Venmo only - digital payments, no cash. Add Stripe later only if the manual reconciliation becomes too burdensome.
 
-### Cost Calculation
-- Fixed: $16/hr per court (set by CourtReserve)
-- Cost per player = `(cost_per_hour * duration) / number_of_committed_players`
-- Updates dynamically as players commit/drop
-- Example: 4 players = $4 each, 8 players = $2 each
+### Cost Calculation (Split Guest Pool Model)
+**CourtReserve Booking Structure:**
+- Each court requires 4 people on the booking
+- Mike (member): $9 per court
+- 3 guest spots: $16 × 3 = $48 per court
+- **Total per court: $57**
+
+**How it works:**
+- Mike's cost is fixed: $9 per court booked (fronted when booking)
+- Guest pool ($48 per court) is split among ALL guests playing
+- Guests who rotate in as subs still share the cost equally
+- **Rate locks at payment deadline** (24h before session)
+
+**Formula:**
+```
+mike_pays = $9 × courts_needed  (already paid when booking)
+guest_pool = $48 × courts_needed  
+guest_pays = guest_pool ÷ number_of_guests
+```
+
+**Examples:**
+| Players | Courts | Mike | Guest Pool | # Guests | Per Guest |
+|---------|--------|------|------------|----------|-----------|
+| 4       | 1      | $9   | $48        | 3        | $16.00    |
+| 5       | 1      | $9   | $48        | 4        | $12.00    |
+| 6       | 1      | $9   | $48        | 5        | $9.60     |
+| 7       | 1      | $9   | $48        | 6        | $8.00     |
+| 8       | 2      | $18  | $96        | 7        | $13.71    |
+| 9       | 2      | $18  | $96        | 8        | $12.00    |
+| 10      | 2      | $18  | $96        | 9        | $10.67    |
+| 11      | 2      | $18  | $96        | 10       | $9.60     |
+
+**Timeline:**
+- **Book early**: Secure the slot, admin fronts $57/court
+- **24h before**: Lock roster, calculate final cost, send payment requests
+- **No recalculation**: Once locked, rate doesn't change even if someone drops
 
 ### CourtReserve Integration Strategy
 1. **Research**: Check CourtReserve website for API documentation

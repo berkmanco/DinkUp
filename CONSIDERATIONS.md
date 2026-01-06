@@ -53,19 +53,19 @@
 - Good free tier for testing
 - Cost is minimal (~$0.60 for 80 SMS/month if 10 sessions)
 
-### Unified Options
+### What About Unified Platforms (Courier, Knock, etc.)?
 
-**Courier** - Unified notifications (Email + SMS + Push)
-- ✅ Single API for all channels
-- ✅ Great developer experience
-- ✅ Free tier: 10k/month
-- ❌ Another service to learn
-- **Verdict**: Overkill for MVP, but great if you want unified notifications
+**Courier** and similar services are **orchestration layers**, not providers:
+- You still need Twilio/Resend underneath (and pay them)
+- Courier just provides a single API on top
+- Adds: template management, delivery tracking, fallback logic
+- **Verdict**: Overkill for this app. Direct integrations are simpler.
 
 **Final Recommendation:**
 - **Email**: Resend (modern, free tier, great DX)
 - **SMS**: Twilio (reliable, well-documented)
-- **Future**: Consider Courier if you want unified notifications
+- **Architecture**: Supabase Edge Functions → Resend + Twilio directly
+- **Skip**: Courier/Knock — unnecessary abstraction for a simple app
 
 ---
 

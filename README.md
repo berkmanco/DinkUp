@@ -16,10 +16,10 @@ Currently, coordinating pickleball games involves:
 
 **Opt-in, self-service model** where:
 - Players see available sessions and commit themselves
-- Automatic Venmo payment requests when players commit
+- Admin books courts early to secure slots
+- Payment requests sent 24h before session (after numbers settle)
 - Automatic waitlist management when spots open
 - System tracks payments and sends reminders
-- Admin just books courts when ready
 
 ## Tech Stack
 
@@ -44,16 +44,15 @@ Currently, coordinating pickleball games involves:
 - **Waitlist**: Automatic promotion when spots open
 - **Cancellations**: Policy protects admin from eating costs
 
-### Payment Model
-- **Venmo only** (no cash, no Stripe initially)
-- Automatic payment link generation
-- Payment tracking dashboard
-- Manual reconciliation (Venmo has no API)
+### Cost Model
+- **Per court**: $57 ($9 admin + $48 guest pool split among guests)
+- **Payment timing**: Venmo requests sent 24h before session
+- More guests = lower cost per guest
 
-### Cancellation Policy
-- **>24 hours before**: Full refund
-- **<24 hours before**: No refund unless replacement found
-- Protects admin from eating costs on last-minute cancellations
+### Timeline
+- **Book early**: Secure court when minimum players commit
+- **24h before**: Roster locks, payment requests sent
+- **12h before**: Last chance to cancel court if below minimum
 
 ## Documentation
 
@@ -63,17 +62,17 @@ Currently, coordinating pickleball games involves:
 
 ## Key Decisions
 
-### Payment
+### Payment & Cost Model
 - **Venmo only** (no cash, no Stripe initially)
-- Zero cost overhead
-- Automatic payment link generation
+- **Per court**: $57 total ($9 admin + $48 guest pool)
+- **Guest cost**: $48 per court ÷ number of guests
+- Payment requests sent **24h before session** (after numbers settle)
 - Manual reconciliation (Venmo has no API)
-- Consider Stripe later if doing 10+ sessions/month
 
 ### Cancellation Policy
-- **>24 hours before**: Full refund
-- **<24 hours before**: No refund unless replacement found
-- Protects admin from eating costs on last-minute cancellations
+- **Before payment deadline (24h before)**: Can drop freely, no payment owed
+- **After payment deadline**: Owe your share unless replacement found
+- **12h before**: Last chance to cancel court on CourtReserve if below minimum
 
 ### Notifications
 - **SMS**: From Twilio service number (not your personal number)
@@ -81,8 +80,8 @@ Currently, coordinating pickleball games involves:
 - Players see service names, not personal contact info
 
 ### Other
-- **Court Booking**: Manual (only admin has CourtReserve membership)
-- **Cost**: $16/hr fixed, split among committed players
+- **Court Booking**: Book early to secure slot, admin fronts $57/court
+- **Court allocation**: 4-7 players = 1 court, 8-11 players = 2 courts
 - **Multi-admin**: Start with single admin per pool (can add later)
 
 ## Project Status

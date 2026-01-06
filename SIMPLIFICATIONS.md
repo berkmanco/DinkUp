@@ -19,8 +19,10 @@
    - ✅ Architecture supports automation via `court_available` field (ready for future)
 8. **Simplify payment statuses** - Just "pending", "paid", "refunded"
    - ✅ Simplified from complex enum
-9. **Dynamic cost calculation** - Calculate based on committed players
-   - ✅ Keep dynamic: `cost_per_player = (cost_per_hour * duration) / number_of_committed_players`
+9. **Cost calculation** - Split guest pool model
+   - ✅ Admin pays $9/court (member rate)
+   - ✅ Guest pool: $48/court split among all guests
+   - ✅ Formula: `guest_cost = ($48 × courts) / number_of_guests`
 
 ## MVP Schema (Simplified but Future-Ready)
 
@@ -42,10 +44,11 @@
 ## What to Keep
 
 ✅ Opt-in model (core value)  
-✅ Automatic Venmo links  
+✅ Book early, pay late (24h before session)  
+✅ Automatic Venmo links at payment deadline  
 ✅ Waitlist system with position tracking  
-✅ Cancellation policy  
-✅ Dynamic cost calculation  
+✅ Cancellation policy (free before payment deadline, owe after)  
+✅ Split guest pool cost model ($48/court ÷ guests)  
 ✅ Payment tracking  
 ✅ Registration links  
 ✅ Notification preferences (Email/SMS/Both)

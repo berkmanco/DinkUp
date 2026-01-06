@@ -63,15 +63,17 @@ You: "Please Venmo me @berkman $32 if you haven't already. Looking forward to it
 ```
 
 **How App Solves This:**
-- When player clicks "I'm In", system automatically:
-  - Calculates cost: $32 (or $16 if 8 people)
-  - Generates Venmo link: `venmo://paycharge?txn=pay&recipients=berkman&amount=32`
-  - Sends link to player immediately
+- Players opt in over time (no payment yet)
+- **24h before session**, system automatically:
+  - Locks roster
+  - Calculates final cost: $48 guest pool ÷ guests (e.g., $12/person for 4 guests)
+  - Generates Venmo links for each guest
+  - Sends payment requests
 - Payment dashboard shows:
-  - ✅ Paid: 6 players
-  - ⏳ Pending: 2 players
-- System sends automatic reminders to unpaid players
-- No manual Venmo requests needed
+  - ✅ Paid: 4 guests
+  - ⏳ Pending: 2 guests
+- System sends automatic reminders to unpaid
+- No manual Venmo requests, no recalculation needed
 
 ---
 
@@ -137,14 +139,15 @@ You: [Handle refund if they paid]
 ```
 
 **How App Solves This:**
-- Player clicks "Drop Out"
-- System automatically:
-  - Promotes first waitlist player
-  - Sends notification: "Spot opened up! You're in if you commit"
-  - Handles refund (if >24h notice)
-  - Updates cost per player if needed
-- You see: "Replacement found: John" or "No replacement yet"
-- No scrambling needed
+- **Before payment deadline (>24h before)**: Player can drop out freely, no money owed
+- **After payment deadline**: 
+  - Player clicks "Drop Out"
+  - System warns: "You still owe unless replacement found"
+  - System promotes first waitlist player
+  - If replacement found: Original player is off the hook
+  - If no replacement: Original player owes their share
+- You see: "Replacement found: John" or "Awaiting replacement"
+- No scrambling, no recalculation (rate was locked at payment deadline)
 
 ---
 
@@ -153,8 +156,9 @@ You: [Handle refund if they paid]
 1. **Dynamic Court Booking**: You book 1 court, then add 2nd as more people join
    - ✅ App supports: Can add courts to session, or create separate sessions
 
-2. **Payment Amount Varies**: $32 for some, $16 for others (depends on number of players)
-   - ✅ App supports: Dynamic cost calculation based on committed players
+2. **Payment Amount Varies**: Guest cost depends on number of people
+   - ✅ App supports: $48 guest pool per court split among all guests
+   - Examples: 3 guests = $16 each, 6 guests = $8 each
 
 3. **Equipment Coordination**: People bring extra paddles, share equipment
    - ✅ App supports: Session notes, equipment tracking
