@@ -1,7 +1,12 @@
 import { useEffect, useState } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
-import { getPool, isPoolOwner, Pool } from '../lib/pools'
+import { getPool, isPoolOwner, getPoolPlayers, Pool, Player } from '../lib/pools'
+import {
+  createRegistrationLink,
+  getRegistrationLinks,
+  RegistrationLink,
+} from '../lib/registration'
 
 export default function PoolDetails() {
   const { id, slug } = useParams<{ id?: string; slug?: string }>()
@@ -11,6 +16,11 @@ export default function PoolDetails() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [isOwner, setIsOwner] = useState(false)
+  const [players, setPlayers] = useState<Player[]>([])
+  const [loadingPlayers, setLoadingPlayers] = useState(true)
+  const [registrationLinks, setRegistrationLinks] = useState<RegistrationLink[]>([])
+  const [generatingLink, setGeneratingLink] = useState(false)
+  const [copiedToken, setCopiedToken] = useState<string | null>(null)
 
   useEffect(() => {
     const identifier = slug || id
@@ -19,20 +29,53 @@ export default function PoolDetails() {
     async function loadPool() {
       try {
         setLoading(true)
+        setLoadingPlayers(true)
         const poolData = await getPool(identifier)
         setPool(poolData)
         
         const owner = await isPoolOwner(poolData.id, user.id)
         setIsOwner(owner)
+
+        // Load players
+        const poolPlayers = await getPoolPlayers(poolData.id)
+        setPlayers(poolPlayers)
+
+        // Load registration links if owner
+        if (owner) {
+          const links = await getRegistrationLinks(poolData.id)
+          setRegistrationLinks(links)
+        }
       } catch (err: any) {
         setError(err.message || 'Failed to load pool')
       } finally {
         setLoading(false)
+        setLoadingPlayers(false)
       }
     }
 
     loadPool()
   }, [id, slug, user])
+
+  const handleGenerateLink = async () => {
+    if (!pool) return
+
+    try {
+      setGeneratingLink(true)
+      const newLink = await createRegistrationLink(pool.id)
+      setRegistrationLinks([newLink, ...registrationLinks])
+    } catch (err: any) {
+      setError(err.message || 'Failed to generate registration link')
+    } finally {
+      setGeneratingLink(false)
+    }
+  }
+
+  const copyRegistrationUrl = (token: string) => {
+    const url = `${window.location.origin}/register/${token}`
+    navigator.clipboard.writeText(url)
+    setCopiedToken(token)
+    setTimeout(() => setCopiedToken(null), 2000)
+  }
 
   if (loading) {
     return (
@@ -89,16 +132,106 @@ export default function PoolDetails() {
       <div className="grid sm:grid-cols-2 gap-4 sm:gap-6">
         {/* Players Section */}
         <div className="bg-white rounded-lg shadow p-4 sm:p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">
-            Players
-          </h2>
-          <p className="text-gray-500 text-sm">
-            Player management coming soon...
-          </p>
-          {isOwner && (
-            <button className="mt-4 text-sm text-blue-600 hover:text-blue-700">
-              Generate Registration Link
-            </button>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-gray-900">Players</h2>
+            {isOwner && (
+              <button
+                onClick={handleGenerateLink}
+                disabled={generatingLink}
+                className="text-sm bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {generatingLink ? 'Generating...' : 'Generate Link'}
+              </button>
+            )}
+          </div>
+          {loadingPlayers ? (
+            <div className="flex items-center justify-center py-4">
+              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
+            </div>
+          ) : players.length === 0 ? (
+            <p className="text-gray-500 text-sm">
+              No players in this pool yet. Generate a registration link to invite players.
+            </p>
+          ) : (
+            <div className="space-y-2">
+              {players.map((player) => (
+                <div
+                  key={player.id}
+                  className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+                >
+                  <div className="flex-1">
+                    <div className="font-medium text-gray-900">{player.name}</div>
+                    <div className="text-sm text-gray-500 space-x-3 mt-1">
+                      {player.email && (
+                        <span>{player.email}</span>
+                      )}
+                      {player.phone && (
+                        <span>{player.phone}</span>
+                      )}
+                      <span>Venmo: {player.venmo_account}</span>
+                    </div>
+                  </div>
+                  <div className="text-xs text-gray-400">
+                    Joined {new Date(player.joined_at).toLocaleDateString()}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {isOwner && registrationLinks.length > 0 && (
+            <div className="mt-4 pt-4 border-t border-gray-200">
+              <h3 className="text-sm font-medium text-gray-700 mb-2">
+                Registration Links
+              </h3>
+              <div className="space-y-2">
+                {registrationLinks.map((link) => {
+                  const url = `${window.location.origin}/register/${link.token}`
+                  const isExpired = new Date(link.expires_at) < new Date()
+                  const isUsed = link.used_at !== null
+
+                  return (
+                    <div
+                      key={link.id}
+                      className="flex items-center justify-between p-2 bg-gray-50 rounded text-xs"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <code className="text-gray-600 truncate font-mono">
+                            {link.token.substring(0, 16)}...
+                          </code>
+                          {isUsed && (
+                            <span className="bg-green-100 text-green-800 px-1.5 py-0.5 rounded text-xs">
+                              Used
+                            </span>
+                          )}
+                          {isExpired && !isUsed && (
+                            <span className="bg-red-100 text-red-800 px-1.5 py-0.5 rounded text-xs">
+                              Expired
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-gray-500">
+                          {link.used_at
+                            ? `Used ${new Date(link.used_at).toLocaleDateString()}`
+                            : isExpired
+                            ? `Expired ${new Date(link.expires_at).toLocaleDateString()}`
+                            : `Expires ${new Date(link.expires_at).toLocaleDateString()}`}
+                        </div>
+                      </div>
+                      {!isUsed && !isExpired && (
+                        <button
+                          onClick={() => copyRegistrationUrl(link.token)}
+                          className="ml-2 text-blue-600 hover:text-blue-700 text-xs whitespace-nowrap"
+                        >
+                          {copiedToken === link.token ? 'Copied!' : 'Copy URL'}
+                        </button>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
           )}
         </div>
 

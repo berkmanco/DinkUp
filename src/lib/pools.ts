@@ -114,3 +114,50 @@ export async function isPoolOwner(poolId: string, userId: string) {
   return data?.owner_id === userId
 }
 
+// Player interface
+export interface Player {
+  id: string
+  name: string
+  phone: string | null
+  email: string | null
+  venmo_account: string
+  notification_preferences: {
+    email: boolean
+    sms: boolean
+  }
+  is_active: boolean
+  created_at: string
+  joined_at: string // from pool_players
+}
+
+// Get all players in a pool
+export async function getPoolPlayers(poolId: string) {
+  const { data, error } = await supabase
+    .from('pool_players')
+    .select(`
+      joined_at,
+      is_active,
+      players (
+        id,
+        name,
+        phone,
+        email,
+        venmo_account,
+        notification_preferences,
+        is_active,
+        created_at
+      )
+    `)
+    .eq('pool_id', poolId)
+    .eq('is_active', true)
+    .order('joined_at', { ascending: true })
+
+  if (error) throw error
+
+  // Transform the data to flatten the structure
+  return (data || []).map((pp: any) => ({
+    ...pp.players,
+    joined_at: pp.joined_at,
+  })) as Player[]
+}
+
