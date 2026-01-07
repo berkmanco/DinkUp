@@ -63,31 +63,21 @@ Supabase CLI is initialized and ready to use:
 supabase/
   migrations/
     20260105000000_initial_schema.sql  ← Initial schema (source of truth)
-  schema.sql                            ← Full schema snapshot (reference only)
-  sample_data.sql                       ← Sample data
+  seed.sql                              ← Seed data (dev/testing only)
 ```
 
 **Migration naming:** `YYYYMMDDHHMMSS_description.sql`
 
 ---
 
-## schema.sql vs Migrations
+## Migrations - Source of Truth ⭐
 
-### Migrations (`migrations/*.sql`) - Source of Truth ⭐
+### Migrations (`migrations/*.sql`)
 - **Purpose:** Incremental changes that build up your database over time
 - **Used by:** Supabase CLI tracks which migrations have been applied
 - **When to use:** For all database changes (new tables, columns, policies, etc.)
 - **History:** Shows the evolution of your schema
-
-### schema.sql - Reference Document
-- **Purpose:** Complete, current snapshot of your entire database schema
-- **Used for:**
-  - Quick reference (see everything at once)
-  - Documentation
-  - Initial setup in brand new projects (optional)
-  - Understanding the full structure
-- **When to update:** After applying migrations that change structure
-- **Not used by:** Supabase CLI (migrations are the source of truth)
+- **Source of truth:** The database state is the sum of all applied migrations
 
 ### Best Practice Workflow
 
@@ -101,32 +91,13 @@ supabase/
    npm run db:push
    ```
 
-3. **Update schema.sql:** Keep it in sync (for reference)
-   - Manually update `schema.sql` to reflect the change
-   - This is documentation, not required for functionality
-
-### When to Use Each
-
-**Use Migrations For:**
-- ✅ All production changes
-- ✅ Version control of changes
-- ✅ Team collaboration
-- ✅ CI/CD deployments
-
-**Use schema.sql For:**
-- ✅ Quick reference of full schema
-- ✅ Onboarding new team members
-- ✅ Documentation
-- ✅ Initial project setup (one-time, optional)
+3. **Verify:** Check that it worked as expected
 
 ### Important Notes
 
-- **Supabase CLI only tracks migrations**, not `schema.sql`
-- **Migrations are the source of truth** - the database state is the sum of all applied migrations
-- **schema.sql should match migrations** - but if they diverge, migrations win
-- **For new projects:** You can either:
-  - Start with `schema.sql` (run once), then use migrations going forward
-  - Or create an initial migration with the full schema, then use incremental migrations
+- **Supabase CLI tracks migrations** - they are the source of truth
+- **Migrations are version controlled** - all changes tracked in git
+- **For new projects:** Create an initial migration with the full schema, then use incremental migrations
 
 ---
 
@@ -153,8 +124,8 @@ supabase/
    - Run it
    - Document that it's been applied
 
-4. **Update schema.sql:**
-   - If it's a structural change, update `schema.sql` to reflect it
+4. **Verify the change:**
+   - Test that it works as expected
 
 ---
 
@@ -166,15 +137,56 @@ When creating/applying a migration:
 - [ ] Document what it does in the file
 - [ ] Check for breaking changes
 - [ ] Apply to production via SQL Editor
-- [ ] Update `schema.sql` if structural change
 - [ ] Verify it worked
 - [ ] Commit migration file to git
+
+---
+
+## Database Seeding
+
+Supabase supports seeding for **local development only**:
+
+- **File:** `supabase/seed.sql` (automatically detected)
+- **When it runs:** 
+  - First time you run `supabase start` (local dev)
+  - Every time you run `supabase db reset` (local dev)
+  - **Never runs** when you do `supabase db push` (remote/production)
+- **Purpose:** Populate local database with test data for development
+- **⚠️ Local dev only** - seeds never run in production/remote databases
+
+### Local Development Setup
+
+Supabase has a full local development environment:
+
+```bash
+# Start local Supabase (requires Docker)
+supabase start
+
+# This will:
+# 1. Start all Supabase services locally (DB, Auth, Storage, etc.)
+# 2. Run all migrations
+# 3. Run seed.sql (if present)
+
+# Reset local database (migrations + seeds)
+supabase db reset
+
+# Push migrations to remote (NO seeds)
+supabase db push
+```
+
+**Key Points:**
+- ✅ Seeds run automatically in local dev (`supabase start` / `supabase db reset`)
+- ✅ Seeds are safe - they only run locally, never on remote
+- ✅ `supabase db push` only runs migrations, never seeds
+- ⚠️ Seed files are optional - only include if you need test data
 
 ---
 
 ## Current Migrations
 
 - `20260105000000_initial_schema.sql` - **Initial schema setup** - Complete database schema with all tables, types, functions, triggers, indexes, and RLS policies (with fixes already applied)
+- `20260107003714_add_pool_owner_trigger.sql` - Auto-set owner_id from auth.uid()
+- `20260107004104_add_pool_slug.sql` - Add slug field for short URLs
 
 ## Quick Reference
 
@@ -236,5 +248,5 @@ supabase db remote commit    # Mark migrations as applied (if applied manually)
 2. **One change per migration** - Easier to debug and rollback
 3. **Use transactions** - Wrap in BEGIN/COMMIT when possible
 4. **Document breaking changes** - Note in migration file
-5. **Keep schema.sql updated** - It's the source of truth
+5. **Migrations are the source of truth** - keep them clean and well-documented
 6. **Version control everything** - All migrations in git

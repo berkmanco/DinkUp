@@ -1,7 +1,14 @@
 -- ============================================
--- Sample Data for Pickleballers
+-- Seed Data for Pickleballers
 -- ============================================
--- Run this AFTER schema.sql to populate test data
+-- This file is automatically run by Supabase CLI in LOCAL development only
+-- 
+-- When it runs:
+--   - First time: supabase start
+--   - Every time: supabase db reset
+--   - NEVER: supabase db push (seeds don't run on remote/production)
+-- 
+-- ⚠️ LOCAL DEVELOPMENT ONLY - Seeds never run in production
 -- 
 -- This simulates a realistic scenario:
 -- - 1 pool "Weekend Warriors" with 8 players
