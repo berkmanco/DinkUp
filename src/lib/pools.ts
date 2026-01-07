@@ -18,6 +18,10 @@ export interface CreatePoolData {
 
 // Get all pools the user owns or is a member of
 export async function getPools(userId: string, userEmail?: string) {
+  if (!supabase) {
+    throw new Error('Database not initialized')
+  }
+  
   // Get pools user owns
   const { data: ownedPools, error: ownedError } = await supabase
     .from('pools')
@@ -151,40 +155,18 @@ export interface Player {
 
 // Link player record to user account (by email)
 // This is called after sign-in to connect the player record created during registration
+// Uses a SECURITY DEFINER function to bypass RLS (users can't see unlinked player records)
 export async function linkPlayerToUser(userId: string, email: string): Promise<string | null> {
-  // Find player record by email
-  const { data: playerRecord, error: findError } = await supabase
-    .from('players')
-    .select('id, user_id')
-    .eq('email', email)
-    .single()
+  const { data: playerId, error } = await supabase.rpc('link_player_to_user', {
+    p_email: email
+  })
 
-  if (findError && findError.code !== 'PGRST116') {
-    // PGRST116 = no rows returned
-    throw findError
+  if (error) {
+    console.error('Error linking player to user:', error)
+    throw error
   }
 
-  // If no player record found, return null
-  if (!playerRecord) {
-    return null
-  }
-
-  // If already linked to a different user, don't change it
-  if (playerRecord.user_id && playerRecord.user_id !== userId) {
-    return playerRecord.id
-  }
-
-  // Link to current user if not already linked
-  if (!playerRecord.user_id) {
-    const { error: updateError } = await supabase
-      .from('players')
-      .update({ user_id: userId })
-      .eq('id', playerRecord.id)
-
-    if (updateError) throw updateError
-  }
-
-  return playerRecord.id
+  return playerId
 }
 
 // Get player ID for current user

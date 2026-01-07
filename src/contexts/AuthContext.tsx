@@ -11,7 +11,16 @@ interface AuthContextType {
   signOut: () => Promise<void>
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined)
+// Create context with a default value to prevent HMR issues
+const defaultValue: AuthContextType = {
+  user: null,
+  session: null,
+  loading: true,
+  signIn: async () => { throw new Error('AuthProvider not initialized') },
+  signOut: async () => { throw new Error('AuthProvider not initialized') },
+}
+
+const AuthContext = createContext<AuthContextType>(defaultValue)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
@@ -34,21 +43,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Listen for auth changes
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session)
       setUser(session?.user ?? null)
-      
-      // Automatically link player record to user if they just signed in
-      if (session?.user?.email && _event === 'SIGNED_IN') {
-        try {
-          await linkPlayerToUser(session.user.id, session.user.email)
-        } catch (err) {
-          // Silently fail - linking is best effort
-          console.log('Could not link player record:', err)
-        }
-      }
-      
       setLoading(false)
+      
+      // Link player record in background (don't await - non-blocking)
+      if (session?.user?.email && _event === 'SIGNED_IN') {
+        linkPlayerToUser(session.user.id, session.user.email).catch(() => {
+          // Silently fail - linking is best effort
+        })
+      }
     })
 
     return () => subscription.unsubscribe()
@@ -88,10 +93,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 }
 
 export function useAuth() {
-  const context = useContext(AuthContext)
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider')
-  }
-  return context
+  return useContext(AuthContext)
 }
 

@@ -168,15 +168,20 @@ export default function PoolDetails() {
                 >
                   <div className="flex-1">
                     <div className="font-medium text-gray-900">{player.name}</div>
-                    <div className="text-sm text-gray-500 space-x-3 mt-1">
-                      {player.email && (
-                        <span>{player.email}</span>
-                      )}
-                      {player.phone && (
-                        <span>{player.phone}</span>
-                      )}
-                      <span>Venmo: {player.venmo_account}</span>
-                    </div>
+                    {/* Only show sensitive info (email, phone, venmo) to pool owners */}
+                    {isOwner && (
+                      <div className="text-sm text-gray-500 space-x-3 mt-1">
+                        {player.email && (
+                          <span>{player.email}</span>
+                        )}
+                        {player.phone && (
+                          <span>{player.phone}</span>
+                        )}
+                        {player.venmo_account && (
+                          <span>Venmo: {player.venmo_account}</span>
+                        )}
+                      </div>
+                    )}
                   </div>
                   <div className="text-xs text-gray-400">
                     Joined {new Date(player.joined_at).toLocaleDateString()}
