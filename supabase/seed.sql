@@ -20,19 +20,23 @@
 -- For testing, we'll create players without auth links
 
 -- ============================================
--- POOL
+-- POOLS
 -- ============================================
 
-insert into pools (id, name, description, is_active) values
-  ('11111111-1111-1111-1111-111111111111', 'Weekend Warriors', 'Saturday morning pickleball crew', true);
+-- Insert pools first (owner_id will be set after we find Mike's user_id)
+insert into pools (id, name, description, is_active, owner_id) values
+  ('11111111-1111-1111-1111-111111111111', 'Weekend Warriors', 'Saturday morning pickleball crew', true, null),
+  ('22222222-2222-2222-2222-222222222222', 'Friends & Family', 'Casual games with friends and family', true, null),
+  ('33333333-3333-3333-3333-333333333333', 'Couples', 'Couples pickleball sessions', true, null),
+  ('44444444-4444-4444-4444-444444444444', 'Competitive', 'More competitive play', true, null);
 
 -- ============================================
 -- PLAYERS
 -- ============================================
 
 insert into players (id, name, phone, email, venmo_account, notification_preferences, is_active) values
-  -- Admin (Mike)
-  ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'Mike Berkman', '555-0001', 'mike@example.com', '@mike-pb', '{"email": true, "sms": true}', true),
+  -- Admin (Mike) - will be linked to auth user mike@berkman.co
+  ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'Mike Berkman', '555-0001', 'mike@berkman.co', '@mike-pb', '{"email": true, "sms": true}', true),
   -- Regular players
   ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'Erik Berkman', '555-0002', 'erik@example.com', '@erik-pb', '{"email": true, "sms": false}', true),
   ('cccccccc-cccc-cccc-cccc-cccccccccccc', 'Sarah Johnson', '555-0003', 'sarah@example.com', '@sarah-pb', '{"email": true, "sms": true}', true),
@@ -43,18 +47,80 @@ insert into players (id, name, phone, email, venmo_account, notification_prefere
   ('22222222-3333-4444-5555-666666666666', 'Bob Martinez', '555-0008', 'bob@example.com', '@bob-pb', '{"email": true, "sms": true}', true);
 
 -- ============================================
--- POOL PLAYERS (all players in the pool)
+-- SET POOL OWNERS (Mike owns all pools)
+-- ============================================
+-- Link Mike's player record to auth user and set as owner of all pools
+-- Note: This assumes mike@berkman.co exists in auth.users
+-- If the user doesn't exist yet, pools will be created without owner_id
+-- Run supabase/fix_mike_pools.sql after Mike signs up to fix this
+
+do $$
+declare
+  mike_user_id uuid;
+  mike_player_id uuid := 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
+begin
+  -- Try to find mike@berkman.co in auth.users
+  select id into mike_user_id
+  from auth.users
+  where email = 'mike@berkman.co'
+  limit 1;
+  
+  -- If user exists, link Mike's player record and set as owner of all pools
+  if mike_user_id is not null then
+    -- Link Mike's player to his auth user
+    update players
+    set user_id = mike_user_id
+    where id = mike_player_id;
+    
+    -- Set Mike as owner of all pools
+    update pools
+    set owner_id = mike_user_id
+    where owner_id is null;
+    
+    -- Ensure Mike is in all pools via pool_players
+    insert into pool_players (pool_id, player_id, is_active)
+    select id, mike_player_id, true
+    from pools
+    where id not in (
+      select pool_id
+      from pool_players
+      where player_id = mike_player_id
+    )
+    on conflict (pool_id, player_id) do nothing;
+  end if;
+end $$;
+
+-- ============================================
+-- POOL PLAYERS (distribute players across pools)
 -- ============================================
 
+-- Weekend Warriors pool
 insert into pool_players (pool_id, player_id, is_active) values
   ('11111111-1111-1111-1111-111111111111', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', true), -- Mike (admin)
   ('11111111-1111-1111-1111-111111111111', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', true), -- Erik
   ('11111111-1111-1111-1111-111111111111', 'cccccccc-cccc-cccc-cccc-cccccccccccc', true), -- Sarah
-  ('11111111-1111-1111-1111-111111111111', 'dddddddd-dddd-dddd-dddd-dddddddddddd', true), -- John
-  ('11111111-1111-1111-1111-111111111111', 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee', true), -- Lisa
-  ('11111111-1111-1111-1111-111111111111', 'ffffffff-ffff-ffff-ffff-ffffffffffff', true), -- Tom
-  ('11111111-1111-1111-1111-111111111111', '11111111-2222-3333-4444-555555555555', true), -- Amy
-  ('11111111-1111-1111-1111-111111111111', '22222222-3333-4444-5555-666666666666', true); -- Bob
+  ('11111111-1111-1111-1111-111111111111', 'dddddddd-dddd-dddd-dddd-dddddddddddd', true); -- John
+
+-- Friends & Family pool
+insert into pool_players (pool_id, player_id, is_active) values
+  ('22222222-2222-2222-2222-222222222222', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', true), -- Mike (admin)
+  ('22222222-2222-2222-2222-222222222222', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', true), -- Erik
+  ('22222222-2222-2222-2222-222222222222', 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee', true), -- Lisa
+  ('22222222-2222-2222-2222-222222222222', 'ffffffff-ffff-ffff-ffff-ffffffffffff', true); -- Tom
+
+-- Couples pool
+insert into pool_players (pool_id, player_id, is_active) values
+  ('33333333-3333-3333-3333-333333333333', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', true), -- Mike (admin)
+  ('33333333-3333-3333-3333-333333333333', 'cccccccc-cccc-cccc-cccc-cccccccccccc', true), -- Sarah
+  ('33333333-3333-3333-3333-333333333333', 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee', true), -- Lisa
+  ('33333333-3333-3333-3333-333333333333', '11111111-2222-3333-4444-555555555555', true); -- Amy
+
+-- Competitive pool
+insert into pool_players (pool_id, player_id, is_active) values
+  ('44444444-4444-4444-4444-444444444444', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', true), -- Mike (admin)
+  ('44444444-4444-4444-4444-444444444444', 'dddddddd-dddd-dddd-dddd-dddddddddddd', true), -- John
+  ('44444444-4444-4444-4444-444444444444', 'ffffffff-ffff-ffff-ffff-ffffffffffff', true), -- Tom
+  ('44444444-4444-4444-4444-444444444444', '22222222-3333-4444-5555-666666666666', true); -- Bob
 
 -- ============================================
 -- SESSION: Upcoming Saturday game

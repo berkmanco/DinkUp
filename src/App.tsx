@@ -8,6 +8,7 @@ import Pools from './pages/Pools'
 import CreatePool from './pages/CreatePool'
 import PoolDetails from './pages/PoolDetails'
 import AuthCallback from './pages/AuthCallback'
+import Register from './pages/Register'
 import ProtectedRoute from './components/ProtectedRoute'
 
 function App() {
@@ -19,6 +20,7 @@ function App() {
             <Route index element={<Home />} />
             <Route path="login" element={<Login />} />
             <Route path="auth/callback" element={<AuthCallback />} />
+            <Route path="register/:token" element={<Register />} />
             <Route
               path="dashboard"
               element={

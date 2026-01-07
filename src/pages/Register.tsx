@@ -1,0 +1,286 @@
+import { useState, useEffect } from 'react'
+import { useParams, useNavigate } from 'react-router-dom'
+import {
+  validateRegistrationToken,
+  registerPlayer,
+  RegistrationData,
+  RegistrationLinkWithPool,
+} from '../lib/registration'
+
+export default function Register() {
+  const { token } = useParams<{ token: string }>()
+  const navigate = useNavigate()
+  const [link, setLink] = useState<RegistrationLinkWithPool | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [submitting, setSubmitting] = useState(false)
+  const [success, setSuccess] = useState(false)
+
+  // Debug: log token on mount
+  useEffect(() => {
+    console.log('Register page mounted, token:', token)
+  }, [token])
+
+  const [formData, setFormData] = useState<RegistrationData>({
+    name: '',
+    phone: '',
+    email: '',
+    venmo_account: '',
+    notification_preferences: {
+      email: true,
+      sms: false,
+    },
+  })
+
+  useEffect(() => {
+    if (!token) {
+      setError('Invalid registration link')
+      setLoading(false)
+      return
+    }
+
+    async function validateToken() {
+      try {
+        setLoading(true)
+        setError(null)
+        const linkData = await validateRegistrationToken(token)
+        setLink(linkData)
+      } catch (err: any) {
+        console.error('Registration token validation error:', err)
+        setError(err.message || 'Invalid or expired registration link')
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    validateToken()
+  }, [token])
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!token) return
+
+    try {
+      setSubmitting(true)
+      setError(null)
+      await registerPlayer(token, formData)
+      setSuccess(true)
+      // Redirect after 2 seconds
+      setTimeout(() => {
+        navigate(`/p/${link?.pools.slug}`)
+      }, 2000)
+    } catch (err: any) {
+      setError(err.message || 'Registration failed. Please try again.')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      </div>
+    )
+  }
+
+  if (error && !link) {
+    return (
+      <div className="max-w-md mx-auto mt-8 px-4">
+        <div className="bg-red-50 border border-red-200 rounded-lg p-6">
+          <h2 className="text-xl font-semibold text-red-800 mb-2">
+            Registration Error
+          </h2>
+          <p className="text-red-700">{error}</p>
+          {token && (
+            <p className="text-red-600 text-sm mt-2">
+              Token: {token.substring(0, 20)}...
+            </p>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  if (success) {
+    return (
+      <div className="max-w-md mx-auto mt-8 px-4">
+        <div className="bg-green-50 border border-green-200 rounded-lg p-6 text-center">
+          <h2 className="text-xl font-semibold text-green-800 mb-2">
+            Registration Successful!
+          </h2>
+          <p className="text-green-700">
+            You've been added to {link?.pools?.name || 'the pool'}. Redirecting...
+          </p>
+        </div>
+      </div>
+    )
+  }
+
+  if (!link) {
+    // This shouldn't happen, but handle it gracefully
+    return (
+      <div className="max-w-md mx-auto mt-8 px-4">
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
+          <h2 className="text-xl font-semibold text-yellow-800 mb-2">
+            Unable to Load Registration
+          </h2>
+          <p className="text-yellow-700">
+            Please check your registration link and try again.
+          </p>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="max-w-md mx-auto mt-8 px-4">
+      <div className="bg-white rounded-lg shadow-lg p-6">
+        <h1 className="text-2xl font-bold text-gray-900 mb-2">
+          Join {link?.pools?.name || 'this pool'}
+        </h1>
+        <p className="text-gray-600 text-sm mb-6">
+          Fill out the form below to register for this pickleball pool.
+        </p>
+
+        {error && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
+            <p className="text-red-800 text-sm">{error}</p>
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label
+              htmlFor="name"
+              className="block text-sm font-medium text-gray-700 mb-1"
+            >
+              Name <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              id="name"
+              required
+              value={formData.name}
+              onChange={(e) =>
+                setFormData({ ...formData, name: e.target.value })
+              }
+              className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              placeholder="Your full name"
+            />
+          </div>
+
+          <div>
+            <label
+              htmlFor="email"
+              className="block text-sm font-medium text-gray-700 mb-1"
+            >
+              Email <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="email"
+              id="email"
+              required
+              value={formData.email}
+              onChange={(e) =>
+                setFormData({ ...formData, email: e.target.value })
+              }
+              className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              placeholder="your.email@example.com"
+            />
+          </div>
+
+          <div>
+            <label
+              htmlFor="phone"
+              className="block text-sm font-medium text-gray-700 mb-1"
+            >
+              Phone Number
+            </label>
+            <input
+              type="tel"
+              id="phone"
+              value={formData.phone}
+              onChange={(e) =>
+                setFormData({ ...formData, phone: e.target.value })
+              }
+              className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              placeholder="(555) 123-4567"
+            />
+          </div>
+
+          <div>
+            <label
+              htmlFor="venmo_account"
+              className="block text-sm font-medium text-gray-700 mb-1"
+            >
+              Venmo Account <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              id="venmo_account"
+              required
+              value={formData.venmo_account}
+              onChange={(e) =>
+                setFormData({ ...formData, venmo_account: e.target.value })
+              }
+              className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              placeholder="@your-venmo-username"
+            />
+          </div>
+
+          <div className="pt-2">
+            <label className="block text-sm font-medium text-gray-700 mb-3">
+              Notification Preferences
+            </label>
+            <div className="space-y-2">
+              <label className="flex items-center">
+                <input
+                  type="checkbox"
+                  checked={formData.notification_preferences?.email || false}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      notification_preferences: {
+                        ...formData.notification_preferences,
+                        email: e.target.checked,
+                      },
+                    })
+                  }
+                  className="mr-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                />
+                <span className="text-sm text-gray-700">Email notifications</span>
+              </label>
+              <label className="flex items-center">
+                <input
+                  type="checkbox"
+                  checked={formData.notification_preferences?.sms || false}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      notification_preferences: {
+                        ...formData.notification_preferences,
+                        sms: e.target.checked,
+                      },
+                    })
+                  }
+                  className="mr-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                />
+                <span className="text-sm text-gray-700">SMS notifications</span>
+              </label>
+            </div>
+          </div>
+
+          <button
+            type="submit"
+            disabled={submitting}
+            className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition"
+          >
+            {submitting ? 'Registering...' : 'Register'}
+          </button>
+        </form>
+      </div>
+    </div>
+  )
+}
+
