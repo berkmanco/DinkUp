@@ -15,7 +15,7 @@ export default function Pools() {
     async function loadPools() {
       try {
         setLoading(true)
-        const data = await getPools(user.id)
+        const data = await getPools(user.id, user.email)
         setPools(data)
       } catch (err: any) {
         setError(err.message || 'Failed to load pools')

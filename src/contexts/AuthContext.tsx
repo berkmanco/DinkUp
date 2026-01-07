@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react'
 import { User, Session } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
+import { linkPlayerToUser } from '../lib/pools'
 
 interface AuthContextType {
   user: User | null
@@ -33,9 +34,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Listen for auth changes
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    } = supabase.auth.onAuthStateChange(async (_event, session) => {
       setSession(session)
       setUser(session?.user ?? null)
+      
+      // Automatically link player record to user if they just signed in
+      if (session?.user?.email && _event === 'SIGNED_IN') {
+        try {
+          await linkPlayerToUser(session.user.id, session.user.email)
+        } catch (err) {
+          // Silently fail - linking is best effort
+          console.log('Could not link player record:', err)
+        }
+      }
+      
       setLoading(false)
     })
 
