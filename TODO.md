@@ -5,3 +5,4 @@
 - [ ] test coverage
 - [ ] refactor, simplify code, clean up
   - [ ] collapse all migrations before shipping to production
+  - [ ] push v1 to prod (set up vercel)

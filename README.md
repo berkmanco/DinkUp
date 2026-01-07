@@ -1,6 +1,6 @@
-# Pickleballers 🏓
+# DinkUp 🏓
 
-A self-service web app for coordinating pickleball games among friends and family.
+A self-service web app for coordinating pickleball sessions with your crew.
 
 ## The Problem
 

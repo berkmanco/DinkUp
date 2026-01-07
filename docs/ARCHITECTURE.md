@@ -1,4 +1,4 @@
-# Pickleballers - Architecture
+# DinkUp - Architecture
 
 ## Overview
 
