@@ -1,0 +1,7 @@
+- [ ] auto-login after registration (needs an egde function.  later)
+- [x] player not linked to pool after login
+- [ ] branding - dinkup.link
+- [ ] security audit / warnings
+- [ ] test coverage
+- [ ] refactor, simplify code, clean up
+  - [ ] collapse all migrations before shipping to production
