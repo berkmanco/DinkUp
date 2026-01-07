@@ -10,7 +10,10 @@
     "preview": "vite build && vite preview",
     "db:push": "supabase db push",
     "db:diff": "supabase db diff",
-    "db:migration": "supabase migration new"
+    "db:migration": "supabase migration new",
+    "supabase:start": "supabase start",
+    "supabase:stop": "supabase stop",
+    "supabase:reset": "supabase db reset"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.89.0",

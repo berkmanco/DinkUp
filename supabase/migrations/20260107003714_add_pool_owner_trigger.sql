@@ -12,6 +12,7 @@ begin
 end;
 $$ language plpgsql security definer;
 
+drop trigger if exists set_pool_owner_on_insert on pools;
 create trigger set_pool_owner_on_insert
   before insert on pools
   for each row execute function set_pool_owner();
