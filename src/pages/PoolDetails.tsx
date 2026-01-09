@@ -73,6 +73,12 @@ export default function PoolDetails() {
       setGeneratingLink(true)
       const newLink = await createRegistrationLink(pool.id)
       setRegistrationLinks([newLink, ...registrationLinks])
+      
+      // Auto-copy the new link to clipboard
+      const url = `${window.location.origin}/register/${newLink.token}`
+      await navigator.clipboard.writeText(url)
+      setCopiedToken(newLink.token)
+      setTimeout(() => setCopiedToken(null), 2000)
     } catch (err: any) {
       setError(err.message || 'Failed to generate registration link')
     } finally {
