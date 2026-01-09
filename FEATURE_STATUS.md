@@ -56,14 +56,31 @@
 
 ---
 
-## Current Feature: Session Reminders 🚧
+## Current Feature: Venmo Email Integration 🚧
 
-### Planned
-- Automated 24h session reminders (cron job / scheduled function)
+### Completed
+- Supabase Edge Function to receive and parse Venmo emails
+- Database schema for `venmo_transactions` table
+- Regex parsing for sender, amount, note, hashtag
+- Auto-matching by hashtag (`#dinkup-{payment_id}`)
+- Fuzzy matching by amount + sender name
+- Venmo links now include payment ID hashtag for auto-matching
+- Cloudflare Email Worker boilerplate
+
+### Manual Setup Required
+- Cloudflare Email Worker deployment
+- Gmail filter/forwarding configuration
+- Environment secrets configuration
+
+### Documentation
+- See `docs/VENMO_INTEGRATION.md` for setup instructions
 
 ---
 
 ## Future Features 📋
+
+### Session Reminders
+- Automated 24h session reminders (cron job / scheduled function)
 
 ### Waitlist Auto-Promotion
 - When someone drops, auto-promote from waitlist

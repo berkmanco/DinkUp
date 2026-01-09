@@ -228,7 +228,9 @@ insert into players (id, user_id, name, phone, email, venmo_account, notificatio
   ('eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee', null, 'Lisa Chen', '+15555550005', 'lisa@example.com', 'lisa-pb', '{"email": true, "sms": true}', true),
   ('ffffffff-ffff-ffff-ffff-ffffffffffff', null, 'Tom Wilson', '+15555550006', 'tom@example.com', 'tom-pb', '{"email": false, "sms": true}', true),
   ('11111111-2222-3333-4444-555555555555', null, 'Amy Davis', '+15555550007', 'amy@example.com', 'amy-pb', '{"email": true, "sms": false}', true),
-  ('22222222-3333-4444-5555-666666666666', null, 'Bob Martinez', '+15555550008', 'bob@example.com', 'bob-pb', '{"email": true, "sms": true}', true);
+  ('22222222-3333-4444-5555-666666666666', null, 'Bob Martinez', '+15555550008', 'bob@example.com', 'bob-pb', '{"email": true, "sms": true}', true),
+  -- Leah - test player for Venmo integration testing
+  ('33333333-4444-5555-6666-777777777777', null, 'Leah Berkman', '+15555550009', 'leah@example.com', 'Leah-Berkman', '{"email": true, "sms": false}', true);
 
 -- ============================================
 -- POOLS (different owners to test non-owner experience)
@@ -257,7 +259,8 @@ insert into pool_players (pool_id, player_id, is_active) values
 insert into pool_players (pool_id, player_id, is_active) values
   ('22222222-2222-2222-2222-222222222222', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', true), -- Erik
   ('22222222-2222-2222-2222-222222222222', 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee', true), -- Lisa
-  ('22222222-2222-2222-2222-222222222222', 'ffffffff-ffff-ffff-ffff-ffffffffffff', true); -- Tom
+  ('22222222-2222-2222-2222-222222222222', 'ffffffff-ffff-ffff-ffff-ffffffffffff', true), -- Tom
+  ('22222222-2222-2222-2222-222222222222', '33333333-4444-5555-6666-777777777777', true); -- Leah (Venmo test)
 
 -- Couples pool (Sarah owns, Mike is a member)
 insert into pool_players (pool_id, player_id, is_active) values
