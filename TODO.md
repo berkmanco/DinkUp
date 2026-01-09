@@ -7,13 +7,11 @@
 - [ ] auto-login after registration (needs edge function)
 - [ ] custom design for supabase auth emails (need custom SMTP server)
 - [ ] UI - Add players to multiple pools (dropdown of existing players, add new, create link)
-- [ ] "Generate Link" should auto-copy to clipboard
 
 ### Future / Exploration
 - [ ] CourtReserve integration (scraping web, does API exist?)
   - [ ] ability to look at open courts on a date
   - [ ] ability to book a court on a date
-- [ ] PWA (installable app, offline support)
 - [ ] Admin can set session costs or make free (outdoor courts)
 - [ ] Multi-use registration links (single link, multiple signups)
 - [ ] Open registration setting (anyone can sign up without a link)
@@ -46,3 +44,5 @@
 - [x] Phone number display formatting
 - [x] Cleaned up player list UI (removed Venmo, stacked info)
 - [x] Venmo email parser (auto-match payments via Gmail → Cloudflare → Supabase)
+- [x] PWA (installable app, offline support)
+- [x] "Generate Link" auto-copies to clipboard
