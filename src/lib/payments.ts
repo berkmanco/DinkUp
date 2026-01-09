@@ -38,13 +38,17 @@ export interface PaymentWithParticipant extends Payment {
  * Generate a Venmo payment link
  * Format: venmo://paycharge?txn=pay&recipients=USERNAME&amount=AMOUNT&note=NOTE
  * Web fallback: https://venmo.com/USERNAME?txn=pay&amount=AMOUNT&note=NOTE
+ * 
+ * Includes a hashtag with the payment ID for automatic reconciliation:
+ * #dinkup-{payment_id}
  */
 export function generateVenmoLink(
   adminVenmoAccount: string,
   amount: number,
   sessionDate: string,
   sessionTime: string,
-  poolName: string
+  poolName: string,
+  paymentId?: string
 ): string {
   // Format date nicely: "Sat Jan 11"
   const date = new Date(sessionDate + 'T00:00:00')
@@ -60,8 +64,13 @@ export function generateVenmoLink(
     minute: '2-digit'
   })
   
-  // Note format: "Pickleball - Weekend Warriors - Sat Jan 11 @ 1:00 PM"
-  const note = encodeURIComponent(`Pickleball - ${poolName} - ${formattedDate} @ ${formattedTime}`)
+  // Note format: "Pickleball - Weekend Warriors - Sat Jan 11 @ 1:00 PM #dinkup-xxx"
+  // The hashtag enables automatic payment matching from Venmo emails
+  let noteText = `Pickleball - ${poolName} - ${formattedDate} @ ${formattedTime}`
+  if (paymentId) {
+    noteText += ` #dinkup-${paymentId}`
+  }
+  const note = encodeURIComponent(noteText)
   const cleanUsername = adminVenmoAccount.replace('@', '')
   
   // Use web link for better cross-platform support
@@ -169,19 +178,25 @@ export async function createPaymentsForSession(
   }
 
   // Create payment records for each guest
-  const payments = participants.map((participant: { id: string }) => ({
-    session_participant_id: participant.id,
-    amount: costSummary.guest_cost,
-    payment_method: 'venmo' as const,
-    venmo_payment_link: generateVenmoLink(
-      adminVenmoAccount,
-      costSummary.guest_cost,
-      sessionDate,
-      sessionTime,
-      poolName
-    ),
-    status: 'pending' as PaymentStatus,
-  }))
+  // Generate UUIDs client-side so we can include them in Venmo links for auto-matching
+  const payments = participants.map((participant: { id: string }) => {
+    const paymentId = crypto.randomUUID()
+    return {
+      id: paymentId,
+      session_participant_id: participant.id,
+      amount: costSummary.guest_cost,
+      payment_method: 'venmo' as const,
+      venmo_payment_link: generateVenmoLink(
+        adminVenmoAccount,
+        costSummary.guest_cost,
+        sessionDate,
+        sessionTime,
+        poolName,
+        paymentId // Include payment ID for auto-matching
+      ),
+      status: 'pending' as PaymentStatus,
+    }
+  })
 
   const { data, error } = await supabase
     .from('payments')
