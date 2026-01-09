@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
+import { Session } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
 
 export default function AuthCallback() {
@@ -30,8 +31,8 @@ export default function AuthCallback() {
         // Token is in the URL, Supabase will handle it
         // Wait a moment for Supabase to process it
         setTimeout(() => {
-          supabase.auth.getSession().then(({ data: { session } }) => {
-            if (session) {
+          supabase.auth.getSession().then(({ data: { session: authSession } }: { data: { session: Session | null } }) => {
+            if (authSession) {
               // Successfully authenticated, redirect to dashboard
               navigate('/dashboard', { replace: true })
             } else {
@@ -42,8 +43,8 @@ export default function AuthCallback() {
         }, 500)
       } else {
         // No token, check if we already have a session
-        supabase.auth.getSession().then(({ data: { session } }) => {
-          if (session) {
+        supabase.auth.getSession().then(({ data: { session: existingSession } }: { data: { session: Session | null } }) => {
+          if (existingSession) {
             navigate('/dashboard', { replace: true })
           } else {
             navigate('/login', { replace: true })

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
 import {
   validateRegistrationToken,
   registerPlayer,
@@ -10,7 +10,6 @@ import { useAuth } from '../contexts/AuthContext'
 
 export default function Register() {
   const { token } = useParams<{ token: string }>()
-  const navigate = useNavigate()
   const { signIn } = useAuth()
   const [link, setLink] = useState<RegistrationLinkWithPool | null>(null)
   const [loading, setLoading] = useState(true)
@@ -42,11 +41,12 @@ export default function Register() {
       return
     }
 
+    const currentToken = token // Capture for TypeScript
     async function validateToken() {
       try {
         setLoading(true)
         setError(null)
-        const linkData = await validateRegistrationToken(token)
+        const linkData = await validateRegistrationToken(currentToken!)
         setLink(linkData)
       } catch (err: any) {
         console.error('Registration token validation error:', err)
@@ -262,8 +262,8 @@ export default function Register() {
                     setFormData({
                       ...formData,
                       notification_preferences: {
-                        ...formData.notification_preferences,
                         email: e.target.checked,
+                        sms: formData.notification_preferences?.sms || false,
                       },
                     })
                   }
@@ -279,7 +279,7 @@ export default function Register() {
                     setFormData({
                       ...formData,
                       notification_preferences: {
-                        ...formData.notification_preferences,
+                        email: formData.notification_preferences?.email || false,
                         sms: e.target.checked,
                       },
                     })

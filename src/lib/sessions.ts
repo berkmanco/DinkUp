@@ -332,7 +332,7 @@ export async function getOpenSessionsToJoin(playerId: string): Promise<SessionWi
   if (poolError) throw poolError
   if (!poolData || poolData.length === 0) return []
 
-  const poolIds = poolData.map(p => p.pool_id)
+  const poolIds = poolData.map((p: { pool_id: string }) => p.pool_id)
 
   // Get all upcoming sessions in those pools
   const { data: sessions, error: sessionsError } = await supabase
@@ -364,9 +364,9 @@ export async function getOpenSessionsToJoin(playerId: string): Promise<SessionWi
 
   if (partError) throw partError
 
-  const joinedSessionIds = new Set((participations || []).map(p => p.session_id))
+  const joinedSessionIds = new Set((participations || []).map((p: { session_id: string }) => p.session_id))
 
   // Filter out sessions user has already joined
-  return sessions.filter(s => !joinedSessionIds.has(s.id)) as SessionWithPool[]
+  return sessions.filter((s: { id: string }) => !joinedSessionIds.has(s.id)) as SessionWithPool[]
 }
 

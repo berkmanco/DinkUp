@@ -33,15 +33,17 @@ export default function CreateSession() {
 
   useEffect(() => {
     if (!poolId || !user) return
+    const currentPoolId = poolId
+    const currentUserId = user.id
 
     async function loadPool() {
       try {
         setLoading(true)
-        const poolData = await getPool(poolId)
+        const poolData = await getPool(currentPoolId)
         setPool(poolData)
         setFormData((prev) => ({ ...prev, pool_id: poolData.id }))
 
-        const owner = await isPoolOwner(poolData.id, user.id)
+        const owner = await isPoolOwner(poolData.id, currentUserId)
         setIsOwner(owner)
 
         if (!owner) {

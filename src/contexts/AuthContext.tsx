@@ -34,16 +34,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session)
-      setUser(session?.user ?? null)
+    supabase.auth.getSession().then(({ data: { session: initialSession } }: { data: { session: Session | null } }) => {
+      setSession(initialSession)
+      setUser(initialSession?.user ?? null)
       setLoading(false)
     })
 
     // Listen for auth changes
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    } = supabase.auth.onAuthStateChange((_event: string, session: Session | null) => {
       setSession(session)
       setUser(session?.user ?? null)
       setLoading(false)
