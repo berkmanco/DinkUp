@@ -292,6 +292,13 @@ export default function Register() {
                 <span className="text-sm text-gray-700">SMS notifications</span>
               </label>
             </div>
+            <p className="text-xs text-gray-500 mt-2">
+              By enabling notifications, you agree to our{' '}
+              <a href="/terms" target="_blank" className="text-[#3CBBB1] hover:underline">
+                Terms & Privacy Policy
+              </a>
+              . You can opt out anytime.
+            </p>
           </div>
 
           <button
