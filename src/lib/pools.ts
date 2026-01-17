@@ -364,6 +364,24 @@ export async function addExistingPlayerToPool(poolId: string, playerId: string):
   }
 }
 
+// Remove a player from a pool (soft delete - sets is_active = false)
+export async function removePlayerFromPool(poolId: string, playerId: string): Promise<void> {
+  if (!supabase) {
+    throw new Error('Database connection not available')
+  }
+
+  const { error } = await supabase
+    .from('pool_players')
+    .update({ is_active: false })
+    .eq('pool_id', poolId)
+    .eq('player_id', playerId)
+
+  if (error) {
+    console.error('Error removing player from pool:', error)
+    throw error
+  }
+}
+
 // Get pool owner's player record (for Venmo account)
 export async function getPoolOwnerPlayer(poolId: string): Promise<Player | null> {
   if (!supabase) {
