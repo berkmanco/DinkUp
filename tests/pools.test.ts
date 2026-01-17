@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll } from 'vitest'
-import { getServiceClient } from './setup'
+import { getServiceClient, SKIP_DB_TESTS } from './setup'
 
-describe('Pool Operations', () => {
+describe.skipIf(SKIP_DB_TESTS)('Pool Operations', () => {
   const supabase = getServiceClient()
   let testPoolId: string
   let testOwnerId: string
@@ -196,7 +196,7 @@ describe('Pool Operations', () => {
   })
 })
 
-describe('Registration Links', () => {
+describe.skipIf(SKIP_DB_TESTS)('Registration Links', () => {
   const supabase = getServiceClient()
   const linksToCleanup: string[] = []
   let testPoolId: string
@@ -291,7 +291,7 @@ describe('Registration Links', () => {
   })
 })
 
-describe('Add Player to Pool', () => {
+describe.skipIf(SKIP_DB_TESTS)('Add Player to Pool', () => {
   const supabase = getServiceClient()
   const playersToCleanup: string[] = []
   let testPoolId: string
@@ -450,7 +450,7 @@ describe('Add Player to Pool', () => {
   })
 })
 
-describe('Add Existing Player to Pool', () => {
+describe.skipIf(SKIP_DB_TESTS)('Add Existing Player to Pool', () => {
   const supabase = getServiceClient()
   const playersToCleanup: string[] = []
   const poolPlayersToCleanup: { poolId: string; playerId: string }[] = []

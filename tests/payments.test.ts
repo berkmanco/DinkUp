@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterEach } from 'vitest'
-import { getServiceClient, getFirstPool } from './setup'
+import { getServiceClient, getFirstPool, SKIP_DB_TESTS } from './setup'
 
-describe('Payment Operations', () => {
+describe.skipIf(SKIP_DB_TESTS)('Payment Operations', () => {
   const supabase = getServiceClient()
   let testPoolId: string
   const sessionsToCleanup: string[] = []

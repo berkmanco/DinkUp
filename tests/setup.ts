@@ -5,6 +5,10 @@ export const LOCAL_SUPABASE_URL = 'http://127.0.0.1:54321'
 export const LOCAL_ANON_KEY = 'sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH'
 export const LOCAL_SERVICE_KEY = 'sb_secret_N7UND0UgjKTVK-Uodkm0Hg_xSvEMPvz'
 
+// Check if we're in CI or if local Supabase is not available
+export const IS_CI = process.env.CI === 'true'
+export const SKIP_DB_TESTS = IS_CI // Skip DB tests in CI (no local Supabase)
+
 // Create clients
 export function getAnonClient(): SupabaseClient {
   return createClient(LOCAL_SUPABASE_URL, LOCAL_ANON_KEY)
