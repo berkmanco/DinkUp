@@ -207,21 +207,33 @@ async function notifySessionCreated(supabase: ReturnType<typeof createClient>, s
 }
 
 async function notifyRosterLocked(supabase: ReturnType<typeof createClient>, sessionId: string) {
-  // Get session with pool info
+  // Get session with pool info including owner
   const { data: session, error: sessionError } = await supabase
     .from("sessions")
-    .select("id, proposed_date, proposed_time, pool:pools(id, name)")
+    .select("id, proposed_date, proposed_time, pool:pools(id, name, owner_id)")
     .eq("id", sessionId)
     .single();
 
   if (sessionError || !session) throw new Error("Session not found");
+
+  // Get the pool owner's Venmo account
+  const { data: ownerPlayer, error: ownerError } = await supabase
+    .from("players")
+    .select("venmo_account")
+    .eq("user_id", session.pool.owner_id)
+    .single();
+
+  const adminVenmo = ownerPlayer?.venmo_account;
+  if (!adminVenmo) {
+    console.warn("Pool owner has no Venmo account configured");
+  }
 
   // Get pending payments with player info
   // Note: Must use !inner to filter on nested relation
   const { data: payments, error: paymentsError } = await supabase
     .from("payments")
     .select(`
-      id, amount, venmo_payment_link,
+      id, amount,
       session_participant:session_participants!inner(
         session_id,
         player:players(id, name, email, phone, notification_preferences)
@@ -240,6 +252,11 @@ async function notifyRosterLocked(supabase: ReturnType<typeof createClient>, ses
     const player = (payment.session_participant as { player: Player })?.player;
     if (!player?.email || !player.notification_preferences?.email) continue;
 
+    // Generate a PAY link (guest pays admin) with hashtag for auto-reconciliation
+    const venmoPayLink = adminVenmo 
+      ? generateVenmoPayLink(adminVenmo, payment.amount, session.proposed_date, session.proposed_time, session.pool.name, payment.id)
+      : null;
+
     const html = emailTemplate({
       title: "Roster Locked - Payment Due 💰",
       preheader: `$${payment.amount.toFixed(2)} due for ${session.pool.name}`,
@@ -254,9 +271,9 @@ async function notifyRosterLocked(supabase: ReturnType<typeof createClient>, ses
         <p>Please pay via Venmo before the session:</p>
       `,
       ctaText: "Pay with Venmo",
-      ctaUrl: payment.venmo_payment_link,
+      ctaUrl: venmoPayLink || `${APP_URL}/s/${sessionId}`,
       secondaryCtaText: "View Session",
-      secondaryCtaUrl: `${APP_URL}/sessions/${sessionId}`,
+      secondaryCtaUrl: `${APP_URL}/s/${sessionId}`,
     });
 
     try {
@@ -276,18 +293,27 @@ async function notifyRosterLocked(supabase: ReturnType<typeof createClient>, ses
 async function notifyPaymentReminder(supabase: ReturnType<typeof createClient>, sessionId: string, customMessage?: string) {
   const { data: session, error: sessionError } = await supabase
     .from("sessions")
-    .select("id, proposed_date, proposed_time, pool:pools(id, name)")
+    .select("id, proposed_date, proposed_time, pool:pools(id, name, owner_id)")
     .eq("id", sessionId)
     .single();
 
   if (sessionError || !session) throw new Error("Session not found");
+
+  // Get the pool owner's Venmo account
+  const { data: ownerPlayer } = await supabase
+    .from("players")
+    .select("venmo_account")
+    .eq("user_id", session.pool.owner_id)
+    .single();
+
+  const adminVenmo = ownerPlayer?.venmo_account;
 
   // Only get PENDING payments
   // Note: Must use !inner to filter on nested relation
   const { data: payments, error: paymentsError } = await supabase
     .from("payments")
     .select(`
-      id, amount, venmo_payment_link,
+      id, amount,
       session_participant:session_participants!inner(
         session_id,
         player:players(id, name, email, phone, notification_preferences)
@@ -305,6 +331,11 @@ async function notifyPaymentReminder(supabase: ReturnType<typeof createClient>, 
     const player = (payment.session_participant as { player: Player })?.player;
     if (!player?.email || !player.notification_preferences?.email) continue;
 
+    // Generate a PAY link (guest pays admin) with hashtag for auto-reconciliation
+    const venmoPayLink = adminVenmo 
+      ? generateVenmoPayLink(adminVenmo, payment.amount, session.proposed_date, session.proposed_time, session.pool.name, payment.id)
+      : null;
+
     const html = emailTemplate({
       title: "Payment Reminder ⏰",
       preheader: `$${payment.amount.toFixed(2)} still due for ${session.pool.name}`,
@@ -315,7 +346,7 @@ async function notifyPaymentReminder(supabase: ReturnType<typeof createClient>, 
         <p>Please pay via Venmo at your earliest convenience:</p>
       `,
       ctaText: "Pay with Venmo",
-      ctaUrl: payment.venmo_payment_link,
+      ctaUrl: venmoPayLink || `${APP_URL}/s/${sessionId}`,
     });
 
     try {
@@ -622,6 +653,34 @@ function formatPhoneNumber(phone: string): string | null {
   if (digits.length === 11 && digits.startsWith("1")) return `+${digits}`;
   if (phone.startsWith("+") && digits.length >= 10) return `+${digits}`;
   return null;
+}
+
+// Generate a Venmo PAY link (for guest to pay admin)
+// Includes hashtag with payment ID for auto-reconciliation
+function generateVenmoPayLink(
+  adminVenmo: string,
+  amount: number,
+  sessionDate: string,
+  sessionTime: string,
+  poolName: string,
+  paymentId: string
+): string {
+  const date = new Date(sessionDate + "T" + sessionTime);
+  const formattedDate = date.toLocaleDateString("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  });
+  const formattedTime = date.toLocaleTimeString("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+  });
+
+  // Create note with hashtag for auto-matching
+  const note = `Pickleball - ${poolName} - ${formattedDate} @ ${formattedTime} #dinkup-${paymentId}`;
+
+  // txn=pay means the user will PAY the recipient
+  return `https://venmo.com/${encodeURIComponent(adminVenmo)}?txn=pay&amount=${amount.toFixed(2)}&note=${encodeURIComponent(note)}`;
 }
 
 interface EmailTemplateParams {
