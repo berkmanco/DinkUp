@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll } from 'vitest'
-import { getServiceClient } from './setup'
+import { getServiceClient, SKIP_DB_TESTS } from './setup'
 
-describe('Pool Operations', () => {
+describe.skipIf(SKIP_DB_TESTS)('Pool Operations', () => {
   const supabase = getServiceClient()
   let testPoolId: string
   let testOwnerId: string
@@ -196,7 +196,7 @@ describe('Pool Operations', () => {
   })
 })
 
-describe('Registration Links', () => {
+describe.skipIf(SKIP_DB_TESTS)('Registration Links', () => {
   const supabase = getServiceClient()
   const linksToCleanup: string[] = []
   let testPoolId: string
@@ -291,7 +291,7 @@ describe('Registration Links', () => {
   })
 })
 
-describe('Add Player to Pool', () => {
+describe.skipIf(SKIP_DB_TESTS)('Add Player to Pool', () => {
   const supabase = getServiceClient()
   const playersToCleanup: string[] = []
   let testPoolId: string
@@ -450,7 +450,7 @@ describe('Add Player to Pool', () => {
   })
 })
 
-describe('Add Existing Player to Pool', () => {
+describe.skipIf(SKIP_DB_TESTS)('Add Existing Player to Pool', () => {
   const supabase = getServiceClient()
   const playersToCleanup: string[] = []
   const poolPlayersToCleanup: { poolId: string; playerId: string }[] = []
@@ -647,5 +647,108 @@ describe('Add Existing Player to Pool', () => {
     expect(error).not.toBeNull()
     expect(error?.code).toBe('23505') // Unique constraint violation
     console.log('Correctly prevented duplicate')
+  })
+
+  it('should remove player from pool (soft delete)', async () => {
+    // Create and add a player
+    const { data: player } = await supabase
+      .from('players')
+      .insert({
+        name: 'Player To Remove',
+        venmo_account: 'remove-test',
+        is_active: true,
+        notification_preferences: { email: false, sms: false },
+      })
+      .select()
+      .single()
+
+    playersToCleanup.push(player.id)
+
+    await supabase.from('pool_players').insert({
+      pool_id: testPoolId,
+      player_id: player.id,
+      is_active: true,
+    })
+    poolPlayersToCleanup.push({ poolId: testPoolId, playerId: player.id })
+
+    // Verify player is active in pool
+    const { data: beforeRemove } = await supabase
+      .from('pool_players')
+      .select('is_active')
+      .eq('pool_id', testPoolId)
+      .eq('player_id', player.id)
+      .single()
+
+    expect(beforeRemove?.is_active).toBe(true)
+
+    // Remove (soft delete)
+    const { error } = await supabase
+      .from('pool_players')
+      .update({ is_active: false })
+      .eq('pool_id', testPoolId)
+      .eq('player_id', player.id)
+
+    expect(error).toBeNull()
+
+    // Verify player is now inactive
+    const { data: afterRemove } = await supabase
+      .from('pool_players')
+      .select('is_active')
+      .eq('pool_id', testPoolId)
+      .eq('player_id', player.id)
+      .single()
+
+    expect(afterRemove?.is_active).toBe(false)
+    console.log('Successfully removed player from pool')
+  })
+
+  it('should allow re-adding removed player', async () => {
+    // Create and add a player
+    const { data: player } = await supabase
+      .from('players')
+      .insert({
+        name: 'Player To Readd',
+        venmo_account: 'readd-test',
+        is_active: true,
+        notification_preferences: { email: false, sms: false },
+      })
+      .select()
+      .single()
+
+    playersToCleanup.push(player.id)
+
+    await supabase.from('pool_players').insert({
+      pool_id: testPoolId,
+      player_id: player.id,
+      is_active: true,
+    })
+    poolPlayersToCleanup.push({ poolId: testPoolId, playerId: player.id })
+
+    // Remove player
+    await supabase
+      .from('pool_players')
+      .update({ is_active: false })
+      .eq('pool_id', testPoolId)
+      .eq('player_id', player.id)
+
+    // Re-add by setting is_active = true
+    const { error } = await supabase
+      .from('pool_players')
+      .update({ is_active: true, joined_at: new Date().toISOString() })
+      .eq('pool_id', testPoolId)
+      .eq('player_id', player.id)
+
+    expect(error).toBeNull()
+
+    // Verify player is active again
+    const { data: afterReadd } = await supabase
+      .from('pool_players')
+      .select('is_active')
+      .eq('pool_id', testPoolId)
+      .eq('player_id', player.id)
+      .single()
+
+    expect(afterReadd?.is_active).toBe(true)
+    console.log('Successfully re-added player to pool')
   })
 })

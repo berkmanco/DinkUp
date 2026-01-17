@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
-import { getPool, isPoolOwner, getPoolPlayers, createPlayerAndAddToPool, getPlayersNotInPool, addExistingPlayerToPool, Pool, Player } from '../lib/pools'
+import { getPool, isPoolOwner, getPoolPlayers, createPlayerAndAddToPool, getPlayersNotInPool, addExistingPlayerToPool, removePlayerFromPool, Pool, Player } from '../lib/pools'
 import { formatPhone } from '../lib/utils'
 import {
   createRegistrationLink,
@@ -169,6 +169,29 @@ export default function PoolDetails() {
     }
   }
 
+  const handleRemovePlayer = async (playerId: string, playerName: string) => {
+    if (!pool) return
+    
+    if (!confirm(`Remove ${playerName} from this pool? They can be re-added later.`)) {
+      return
+    }
+
+    try {
+      setError(null)
+      await removePlayerFromPool(pool.id, playerId)
+      
+      // Reload players list
+      const updatedPlayers = await getPoolPlayers(pool.id)
+      setPlayers(updatedPlayers)
+      
+      // Reload available players (they'll now appear in the dropdown)
+      const availablePlayers = await getPlayersNotInPool(pool.id)
+      setExistingPlayers(availablePlayers)
+    } catch (err: any) {
+      setError(err.message || 'Failed to remove player from pool')
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -257,15 +280,23 @@ export default function PoolDetails() {
                       Joined {new Date(player.joined_at).toLocaleDateString()}
                     </div>
                   </div>
-                  {/* Only show contact info to pool owners */}
+                  {/* Only show contact info and remove button to pool owners */}
                   {isOwner && (
-                    <div className="text-sm text-gray-500 mt-1 space-y-0.5">
-                      {player.email && (
-                        <div className="truncate">{player.email}</div>
-                      )}
-                      {player.phone && (
-                        <div>{formatPhone(player.phone)}</div>
-                      )}
+                    <div className="flex items-end justify-between mt-1">
+                      <div className="text-sm text-gray-500 space-y-0.5">
+                        {player.email && (
+                          <div className="truncate">{player.email}</div>
+                        )}
+                        {player.phone && (
+                          <div>{formatPhone(player.phone)}</div>
+                        )}
+                      </div>
+                      <button
+                        onClick={() => handleRemovePlayer(player.id, player.name)}
+                        className="text-xs text-red-500 hover:text-red-700 hover:underline ml-2"
+                      >
+                        Remove
+                      </button>
                     </div>
                   )}
                 </div>

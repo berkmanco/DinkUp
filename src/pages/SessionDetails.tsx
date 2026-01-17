@@ -24,6 +24,7 @@ import {
   PaymentSummary,
 } from '../lib/payments'
 import { notifyRosterLocked, notifyPaymentReminder, notifySessionReminder } from '../lib/notifications'
+import { generateGoogleCalendarUrl, downloadIcsFile, createSessionCalendarEvent } from '../lib/calendar'
 
 export default function SessionDetails() {
   const { id } = useParams<{ id: string }>()
@@ -620,6 +621,46 @@ export default function SessionDetails() {
               </div>
             )}
           </dl>
+          
+          {/* Add to Calendar */}
+          <div className="mt-4 pt-4 border-t border-gray-100">
+            <p className="text-xs text-gray-500 mb-2">Add to your calendar</p>
+            <div className="flex gap-2">
+              <a
+                href={generateGoogleCalendarUrl(createSessionCalendarEvent(
+                  session.pools.name,
+                  session.court_location || 'Location TBD',
+                  session.court_numbers,
+                  session.proposed_date,
+                  session.proposed_time,
+                  session.duration_minutes,
+                  `${window.location.origin}/s/${session.id}`
+                ))}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-white border border-gray-200 rounded-md hover:bg-gray-50 transition text-gray-700"
+              >
+                <span>📅</span> Google
+              </a>
+              <button
+                onClick={() => downloadIcsFile(
+                  createSessionCalendarEvent(
+                    session.pools.name,
+                    session.court_location || 'Location TBD',
+                    session.court_numbers,
+                    session.proposed_date,
+                    session.proposed_time,
+                    session.duration_minutes,
+                    `${window.location.origin}/s/${session.id}`
+                  ),
+                  `dinkup-${session.proposed_date}.ics`
+                )}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-white border border-gray-200 rounded-md hover:bg-gray-50 transition text-gray-700"
+              >
+                <span>📥</span> iCal/Outlook
+              </button>
+            </div>
+          </div>
         </div>
 
         {/* Participants Section */}

@@ -7,9 +7,10 @@ import {
   deleteTestSession,
   callEdgeFunction,
   getFirstPool,
+  SKIP_DB_TESTS,
 } from './setup'
 
-describe('Notification Edge Functions', () => {
+describe.skipIf(SKIP_DB_TESTS)('Notification Edge Functions', () => {
   const supabase = getServiceClient()
   let testSessionId: string
   let testPoolId: string

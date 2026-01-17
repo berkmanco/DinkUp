@@ -143,7 +143,7 @@ export async function getSessions(poolId: string) {
   return data as Session[]
 }
 
-// Get upcoming sessions for a pool (not cancelled or completed)
+// Get upcoming sessions for a pool (not cancelled or completed, not already ended)
 export async function getUpcomingSessions(poolId: string) {
   if (!supabase) {
     throw new Error('Database connection not available')
@@ -161,7 +161,21 @@ export async function getUpcomingSessions(poolId: string) {
     .order('proposed_time', { ascending: true })
 
   if (error) throw error
-  return data as Session[]
+  
+  // Filter out today's sessions that have already ended
+  const now = new Date()
+  const filtered = (data as Session[]).filter(session => {
+    if (session.proposed_date !== today) return true // Future dates always show
+    
+    // For today's sessions, check if end time has passed
+    const [hours, minutes] = session.proposed_time.split(':').map(Number)
+    const endMinutes = hours * 60 + minutes + (session.duration_minutes || 60)
+    const nowMinutes = now.getHours() * 60 + now.getMinutes()
+    
+    return endMinutes > nowMinutes // Session hasn't ended yet
+  })
+  
+  return filtered
 }
 
 // Get session cost summary
@@ -381,12 +395,22 @@ export async function getUserCommittedSessions(playerId: string): Promise<UserSe
 
   if (error) throw error
 
-  // Transform the data structure
-  return (data || []).map((row: any) => ({
-    ...row.sessions,
-    participant_status: row.status,
-    is_admin: row.is_admin,
-  })) as UserSession[]
+  // Transform and filter out today's sessions that have already ended
+  const now = new Date()
+  const nowMinutes = now.getHours() * 60 + now.getMinutes()
+  
+  return (data || [])
+    .map((row: any) => ({
+      ...row.sessions,
+      participant_status: row.status,
+      is_admin: row.is_admin,
+    }))
+    .filter((session: UserSession) => {
+      if (session.proposed_date !== today) return true
+      const [hours, minutes] = session.proposed_time.split(':').map(Number)
+      const endMinutes = hours * 60 + minutes + (session.duration_minutes || 60)
+      return endMinutes > nowMinutes
+    }) as UserSession[]
 }
 
 /**
@@ -445,7 +469,22 @@ export async function getOpenSessionsToJoin(playerId: string): Promise<SessionWi
   if (sessionsError) throw sessionsError
   if (!sessions || sessions.length === 0) return []
 
-  // Filter out sessions user has already joined
-  return sessions.filter((s: { id: string }) => !joinedSessionIds.has(s.id)) as SessionWithPool[]
+  // Filter out sessions user has already joined and today's sessions that ended
+  const now = new Date()
+  const nowMinutes = now.getHours() * 60 + now.getMinutes()
+  
+  return sessions.filter((s: SessionWithPool) => {
+    // Skip if already joined
+    if (joinedSessionIds.has(s.id)) return false
+    
+    // For today's sessions, check if end time has passed
+    if (s.proposed_date === today) {
+      const [hours, minutes] = s.proposed_time.split(':').map(Number)
+      const endMinutes = hours * 60 + minutes + (s.duration_minutes || 60)
+      if (endMinutes <= nowMinutes) return false
+    }
+    
+    return true
+  }) as SessionWithPool[]
 }
 

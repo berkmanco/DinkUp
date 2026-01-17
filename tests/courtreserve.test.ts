@@ -1,20 +1,18 @@
-import { describe, it, expect, beforeAll } from 'vitest'
-import { createClient } from '@supabase/supabase-js'
+import { describe, it, expect } from 'vitest'
+import { getServiceClient, LOCAL_SUPABASE_URL, SKIP_DB_TESTS } from './setup'
 
-const supabaseUrl = process.env.VITE_SUPABASE_URL || 'http://127.0.0.1:54321'
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || ''
-
-const supabase = createClient(supabaseUrl, supabaseServiceKey)
+const supabase = SKIP_DB_TESTS ? null : getServiceClient()
 
 // Helper to call edge function
 async function callCourtReserve(body: Record<string, unknown>) {
+  if (!supabase) return { data: null, error: { message: 'No supabase client' } }
   const { data, error } = await supabase.functions.invoke('courtreserve', { body })
   return { data, error }
 }
 
-describe('CourtReserve Integration', () => {
-  // Skip in CI/local if no network access to CourtReserve
-  const isProduction = supabaseUrl.includes('supabase.co')
+describe.skipIf(SKIP_DB_TESTS)('CourtReserve Integration', () => {
+  // Skip production API tests in local environment
+  const isProduction = !LOCAL_SUPABASE_URL.includes('127.0.0.1')
   
   describe('Input Validation', () => {
     it('should require date parameter', async () => {

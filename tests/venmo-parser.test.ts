@@ -12,6 +12,7 @@ import {
   TestParticipant,
   TestPayment,
   TestPlayer,
+  SKIP_DB_TESTS,
 } from './setup'
 
 // ============================================
@@ -582,7 +583,7 @@ describe('Venmo Parser', () => {
   })
 })
 
-describe('Venmo Parser Integration', () => {
+describe.skipIf(SKIP_DB_TESTS)('Venmo Parser Integration', () => {
   const supabase = getServiceClient()
   let testPoolId: string
   let testOwnerId: string
