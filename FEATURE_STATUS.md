@@ -112,6 +112,7 @@
 - Open registration (anyone can join without link)
 - Granular notification settings
 - Dynamic OG meta tags for session links
+- Google Maps link for court location in emails
 
 ---
 
