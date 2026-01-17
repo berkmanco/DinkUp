@@ -108,17 +108,26 @@
 
 ## Future Features 📋
 
-### High Priority
-- Automatic session reminders (pg_cron job for 24h before)
+### Quick Wins
+- Hide past sessions in pool page and dashboard
+- Add to Calendar button (emails + session page)
+- CI/CD pipeline (GitHub Actions: build, test, deploy to Vercel)
+
+### High Priority - Automated Notifications (pg_cron)
+- Automatic session reminder (24h before)
+- Uncommitted session reminder ("Please commit soon!")
+- Payment reminder (after lock, before session)
+- Court unavailable alert (CourtReserve check for admin)
 
 ### Medium Priority
 - Players page with detailed view
 - Auto-login after registration
 - Custom Supabase auth email templates
+- Multi-use registration links
+- Player can explicitly opt-out of a session (stop getting reminders)
 
 ### Backlog
 - Admin can set costs or make free (outdoor sessions)
-- Multi-use registration links
 - Open registration (anyone can join without link)
 - Granular notification settings
 - Dynamic OG meta tags for session links
