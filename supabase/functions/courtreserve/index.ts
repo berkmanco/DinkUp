@@ -33,8 +33,9 @@ const COURT_NAMES: Record<string, string> = {
 
 interface CourtReserveRequest {
   date: string; // YYYY-MM-DD format
-  startTime?: string; // HH:MM format (optional filter)
-  endTime?: string; // HH:MM format (optional filter)
+  startTime?: string; // HH:MM format (e.g., "09:00")
+  endTime?: string; // HH:MM format (e.g., "11:00")
+  courtsNeeded?: number; // How many courts do you need?
 }
 
 interface Reservation {
@@ -49,12 +50,100 @@ interface Reservation {
 interface AvailabilityResponse {
   date: string;
   facility: string;
+  // If specific time requested
+  requestedSlot?: {
+    startTime: string;
+    endTime: string;
+    courtsNeeded: number;
+    isAvailable: boolean;
+    availableCourts: { id: number; name: string }[];
+    message: string;
+  };
+  // All courts with their schedules
   courts: {
     id: number;
     name: string;
     reservations: Reservation[];
     availableSlots: { start: string; end: string }[];
   }[];
+}
+
+// Helper: Check if two time ranges overlap
+function timeRangesOverlap(
+  start1: string, end1: string,
+  start2: string, end2: string
+): boolean {
+  // Convert to comparable format (just time portion)
+  const getTime = (dt: string) => {
+    const d = new Date(dt);
+    return d.getHours() * 60 + d.getMinutes();
+  };
+  
+  const s1 = getTime(start1);
+  const e1 = getTime(end1);
+  const s2 = getTime(start2);
+  const e2 = getTime(end2);
+  
+  // Overlap if one starts before the other ends
+  return s1 < e2 && s2 < e1;
+}
+
+// Helper: Check if a court is available during a time window
+function isCourtAvailable(
+  reservations: Reservation[],
+  startTime: string, // "HH:MM"
+  endTime: string,   // "HH:MM"
+  date: string       // "YYYY-MM-DD"
+): boolean {
+  // Create datetime strings for comparison
+  const requestStart = `${date}T${startTime}:00`;
+  const requestEnd = `${date}T${endTime}:00`;
+  
+  for (const res of reservations) {
+    if (timeRangesOverlap(requestStart, requestEnd, res.start, res.end)) {
+      return false; // Conflict found
+    }
+  }
+  return true; // No conflicts
+}
+
+// Helper: Find all available slots for a court (gaps between reservations)
+function findAvailableSlots(
+  reservations: Reservation[],
+  openTime: string = "06:00",
+  closeTime: string = "23:00"
+): { start: string; end: string }[] {
+  const slots: { start: string; end: string }[] = [];
+  
+  // Sort reservations by start time
+  const sorted = [...reservations].sort((a, b) => 
+    new Date(a.start).getTime() - new Date(b.start).getTime()
+  );
+  
+  // Find gaps
+  let currentEnd = openTime;
+  
+  for (const res of sorted) {
+    const resStart = res.start.split("T")[1]?.substring(0, 5) || "00:00";
+    const resEnd = res.end.split("T")[1]?.substring(0, 5) || "00:00";
+    
+    // If there's a gap before this reservation
+    if (resStart > currentEnd) {
+      slots.push({ start: currentEnd, end: resStart });
+    }
+    
+    // Move current end forward
+    if (resEnd > currentEnd) {
+      currentEnd = resEnd;
+    }
+  }
+  
+  // Check for gap at the end of the day
+  if (currentEnd < closeTime) {
+    slots.push({ start: currentEnd, end: closeTime });
+  }
+  
+  return slots;
 }
 
 serve(async (req: Request) => {
@@ -71,11 +160,26 @@ serve(async (req: Request) => {
   }
 
   try {
-    const { date } = await req.json() as CourtReserveRequest;
+    const { date, startTime, endTime, courtsNeeded } = await req.json() as CourtReserveRequest;
     
     if (!date) {
       return new Response(
         JSON.stringify({ error: "date parameter required (YYYY-MM-DD)" }),
+        { status: 400, headers: { "Content-Type": "application/json" } }
+      );
+    }
+    
+    // Validate time format if provided
+    const timeRegex = /^([01]?[0-9]|2[0-3]):[0-5][0-9]$/;
+    if (startTime && !timeRegex.test(startTime)) {
+      return new Response(
+        JSON.stringify({ error: "startTime must be in HH:MM format (e.g., '09:00')" }),
+        { status: 400, headers: { "Content-Type": "application/json" } }
+      );
+    }
+    if (endTime && !timeRegex.test(endTime)) {
+      return new Response(
+        JSON.stringify({ error: "endTime must be in HH:MM format (e.g., '11:00')" }),
         { status: 400, headers: { "Content-Type": "application/json" } }
       );
     }
@@ -154,17 +258,55 @@ serve(async (req: Request) => {
       }
     }
 
+    // Build courts data with available slots
+    const courtsWithSlots = Object.entries(COURT_NAMES).map(([id, name]) => {
+      const courtReservations = courtData[id] || [];
+      return {
+        id: parseInt(id),
+        name,
+        reservations: courtReservations,
+        availableSlots: findAvailableSlots(courtReservations),
+      };
+    });
+
     // Build response
     const response: AvailabilityResponse = {
       date,
       facility: "Pickle Shack",
-      courts: Object.entries(COURT_NAMES).map(([id, name]) => ({
-        id: parseInt(id),
-        name,
-        reservations: courtData[id] || [],
-        availableSlots: [], // TODO: Calculate available slots
-      })),
+      courts: courtsWithSlots,
     };
+
+    // If specific time slot requested, check availability
+    if (startTime && endTime) {
+      const availableCourts: { id: number; name: string }[] = [];
+      
+      for (const court of courtsWithSlots) {
+        if (isCourtAvailable(court.reservations, startTime, endTime, date)) {
+          availableCourts.push({ id: court.id, name: court.name });
+        }
+      }
+      
+      const needed = courtsNeeded || 1;
+      const isAvailable = availableCourts.length >= needed;
+      
+      let message: string;
+      if (isAvailable) {
+        message = `✅ ${availableCourts.length} court(s) available from ${startTime} to ${endTime}`;
+      } else if (availableCourts.length > 0) {
+        message = `⚠️ Only ${availableCourts.length} court(s) available (need ${needed})`;
+      } else {
+        message = `❌ No courts available from ${startTime} to ${endTime}`;
+      }
+      
+      response.requestedSlot = {
+        startTime,
+        endTime,
+        courtsNeeded: needed,
+        isAvailable,
+        availableCourts,
+        message,
+      };
+    }
 
     return new Response(JSON.stringify(response, null, 2), {
       status: 200,
