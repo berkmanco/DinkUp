@@ -22,30 +22,31 @@ export async function getPools(userId: string, userEmail?: string) {
     throw new Error('Database not initialized')
   }
   
-  // Get pools user owns
-  const { data: ownedPools, error: ownedError } = await supabase
-    .from('pools')
-    .select('*')
-    .eq('owner_id', userId)
-    .eq('is_active', true)
-    .order('created_at', { ascending: false })
+  // Run owned pools and player lookup in parallel
+  const [ownedResult, playerResult] = await Promise.all([
+    supabase
+      .from('pools')
+      .select('*')
+      .eq('owner_id', userId)
+      .eq('is_active', true)
+      .order('created_at', { ascending: false }),
+    supabase
+      .from('players')
+      .select('id')
+      .eq('user_id', userId)
+      .single()
+  ])
 
-  if (ownedError) throw ownedError
+  if (ownedResult.error) throw ownedResult.error
+  const ownedPools = ownedResult.data
 
-  // Get pools user is a member of (via pool_players)
-  // First try to find player record by user_id
-  let { data: playerRecord } = await supabase
-    .from('players')
-    .select('id')
-    .eq('user_id', userId)
-    .single()
+  let playerRecord = playerResult.data
 
-  // If not found and email provided, try to link by email
+  // If not found and email provided, try to link by email (rare case)
   if (!playerRecord && userEmail) {
     try {
       const playerId = await linkPlayerToUser(userId, userEmail)
       if (playerId) {
-        // Retry the query after linking
         const { data: retryRecord } = await supabase
           .from('players')
           .select('id')
