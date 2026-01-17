@@ -204,3 +204,92 @@ export async function optOutOfSession(
   return data as SessionParticipant
 }
 
+
+// Get pool players who are not yet actively in a session
+// Returns players who either: have no participant record, or have status 'out'
+export async function getPoolPlayersNotInSession(
+  poolId: string,
+  sessionId: string
+): Promise<{ id: string; name: string }[]> {
+  if (!supabase) {
+    throw new Error('Database connection not available')
+  }
+
+  // Get all active pool players
+  const { data: poolPlayers, error: poolError } = await supabase
+    .from('pool_players')
+    .select('player:players(id, name)')
+    .eq('pool_id', poolId)
+    .eq('is_active', true)
+
+  if (poolError) throw poolError
+
+  // Get players already actively in the session
+  const { data: participants, error: partError } = await supabase
+    .from('session_participants')
+    .select('player_id, status')
+    .eq('session_id', sessionId)
+    .in('status', ['committed', 'paid', 'maybe'])
+
+  if (partError) throw partError
+
+  const activeParticipantIds = new Set(
+    (participants || []).map(p => p.player_id)
+  )
+
+  // Filter to players not actively in session
+  const availablePlayers = (poolPlayers || [])
+    .map((pp: any) => pp.player)
+    .filter((player: any) => player && !activeParticipantIds.has(player.id))
+
+  return availablePlayers as { id: string; name: string }[]
+}
+
+// Add a player to a session (admin action)
+// Used when admin wants to manually add a pool member
+export async function addPlayerToSession(
+  sessionId: string,
+  playerId: string,
+  status: 'committed' | 'maybe' = 'committed'
+): Promise<SessionParticipant> {
+  if (!supabase) {
+    throw new Error('Database connection not available')
+  }
+
+  // Check if player already has a record (might be 'out')
+  const existing = await getCurrentPlayerStatus(sessionId, playerId)
+
+  if (existing) {
+    // Update existing record to new status
+    const { data, error } = await supabase
+      .from('session_participants')
+      .update({
+        status,
+        status_changed_at: new Date().toISOString(),
+        opted_in_at: new Date().toISOString(),
+      })
+      .eq('id', existing.id)
+      .select()
+      .single()
+
+    if (error) throw error
+    return data as SessionParticipant
+  } else {
+    // Create new participant record
+    const { data, error } = await supabase
+      .from('session_participants')
+      .insert({
+        session_id: sessionId,
+        player_id: playerId,
+        status,
+        is_admin: false,
+        opted_in_at: new Date().toISOString(),
+        status_changed_at: new Date().toISOString(),
+      })
+      .select()
+      .single()
+
+    if (error) throw error
+    return data as SessionParticipant
+  }
+}
