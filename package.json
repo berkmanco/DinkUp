@@ -15,6 +15,7 @@
     "test:sessions": "vitest run tests/sessions.test.ts",
     "test:registration": "vitest run tests/registration.test.ts",
     "test:payments": "vitest run tests/payments.test.ts",
+    "test:venmo-parser": "vitest run tests/venmo-parser.test.ts",
     "db:push": "supabase db push",
     "db:diff": "supabase db diff",
     "db:migration": "supabase migration new",
