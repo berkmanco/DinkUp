@@ -134,6 +134,7 @@
 - Player can explicitly opt-out of a session (stop getting reminders)
 
 ### Backlog
+- **Session time voting** - Admin proposes 2-3 time slots, players vote, system picks winner
 - Admin can set costs or make free (outdoor sessions)
 - Open registration (anyone can join without link)
 - Granular notification settings
