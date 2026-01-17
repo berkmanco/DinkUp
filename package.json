@@ -13,6 +13,7 @@
     "test:notifications": "vitest run tests/notifications.test.ts",
     "test:pools": "vitest run tests/pools.test.ts",
     "test:sessions": "vitest run tests/sessions.test.ts",
+    "test:registration": "vitest run tests/registration.test.ts",
     "db:push": "supabase db push",
     "db:diff": "supabase db diff",
     "db:migration": "supabase migration new",
