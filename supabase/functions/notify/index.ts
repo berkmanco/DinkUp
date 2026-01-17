@@ -89,6 +89,37 @@ function getFirstName(fullName: string): string {
   return fullName.split(' ')[0];
 }
 
+// Generate Google Calendar URL
+function generateGoogleCalendarUrl(
+  title: string,
+  location: string,
+  date: string,
+  time: string,
+  durationMinutes: number,
+  sessionUrl: string
+): string {
+  const [year, month, day] = date.split('-').map(Number);
+  const [hours, minutes] = time.split(':').map(Number);
+  
+  const startDt = new Date(year, month - 1, day, hours, minutes);
+  const endDt = new Date(startDt.getTime() + durationMinutes * 60 * 1000);
+  
+  const formatDate = (d: Date) => {
+    const pad = (n: number) => n.toString().padStart(2, '0');
+    return `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}T${pad(d.getHours())}${pad(d.getMinutes())}00`;
+  };
+  
+  const params = new URLSearchParams({
+    action: 'TEMPLATE',
+    text: title,
+    dates: `${formatDate(startDt)}/${formatDate(endDt)}`,
+    details: `Pickleball session.\n\nView details: ${sessionUrl}`,
+    location: location,
+  });
+  
+  return `https://calendar.google.com/calendar/render?${params.toString()}`;
+}
+
 serve(async (req: Request) => {
   const corsHeaders = {
     "Access-Control-Allow-Origin": "*",
@@ -179,6 +210,16 @@ async function notifySessionCreated(supabase: ReturnType<typeof createClient>, s
   const sessionDate = formatDate(session.proposed_date);
   const sessionTime = formatTime(session.proposed_time);
 
+  // Generate calendar URL for the session
+  const calendarUrl = generateGoogleCalendarUrl(
+    `🏓 ${session.pool.name} Pickleball`,
+    "Location TBD",
+    session.proposed_date,
+    session.proposed_time,
+    90,
+    `${APP_URL}/s/${sessionId}`
+  );
+
   for (const pp of poolPlayers || []) {
     const player = pp.player as Player;
     if (!player.email || !player.notification_preferences?.email) continue;
@@ -192,6 +233,7 @@ async function notifySessionCreated(supabase: ReturnType<typeof createClient>, s
         <div style="background: #f8f9fa; padding: 16px; border-radius: 8px; margin: 16px 0;">
           <p style="margin: 0;"><strong>📅 Date:</strong> ${sessionDate}</p>
           <p style="margin: 8px 0 0 0;"><strong>⏰ Time:</strong> ${sessionTime}</p>
+          <p style="margin: 12px 0 0 0;"><a href="${calendarUrl}" style="color: #3CBBB1; font-size: 14px;">📅 Add to Google Calendar</a></p>
         </div>
         <p>Are you in? Click below to opt in!</p>
       `,
@@ -469,6 +511,16 @@ async function notifySessionReminder(supabase: ReturnType<typeof createClient>, 
         </div>
       ` : "";
 
+      // Generate calendar URL
+      const calendarUrl = generateGoogleCalendarUrl(
+        `🏓 ${session.pool.name} Pickleball`,
+        session.court_location || "Location TBD",
+        session.proposed_date,
+        session.proposed_time,
+        90, // Default duration for calendar
+        `${APP_URL}/s/${sessionId}`
+      );
+
       const html = emailTemplate({
         title,
         preheader: `${session.pool.name} session ${timeWord} at ${sessionTime}${hasPendingPayment ? ` - $${pendingPayment.amount.toFixed(2)} due` : ""}`,
@@ -481,6 +533,7 @@ async function notifySessionReminder(supabase: ReturnType<typeof createClient>, 
             <p style="margin: 8px 0 0 0;"><strong>⏰ Time:</strong> ${sessionTime}</p>
             ${session.court_location ? `<p style="margin: 8px 0 0 0;"><strong>📍 Location:</strong> ${session.court_location}</p>` : ""}
             ${session.court_numbers && session.court_numbers.length > 0 ? `<p style="margin: 8px 0 0 0;"><strong>🎾 Court${session.court_numbers.length > 1 ? 's' : ''}:</strong> ${session.court_numbers.join(', ')}</p>` : ""}
+            <p style="margin: 12px 0 0 0;"><a href="${calendarUrl}" style="color: #3CBBB1; font-size: 14px;">📅 Add to Google Calendar</a></p>
           </div>
           ${paymentSection}
           <p>See you on the court!</p>
