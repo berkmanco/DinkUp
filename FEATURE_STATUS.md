@@ -104,19 +104,25 @@
 - Auto-fills court numbers when courts are available
 - Shows available courts for requested date/time/duration
 
+### 15. Quick Wins
+- **Hide past sessions**: Filters out today's sessions that have already ended
+- **Add to Calendar**: Google Calendar + iCal buttons on session page
+- **Calendar links in emails**: Session created and reminder emails include calendar links
+- **CI/CD Pipeline**: GitHub Actions workflow (build, test, deploy to Vercel)
+
+### 16. Automated Notifications (pg_cron)
+- **Session reminder** (24h before): Automatic email to committed players
+- **Commitment reminder** (2-3 days before): "Are you in?" email to uncommitted players
+- **Payment reminder** (1-2 days before): Auto-reminder for unpaid participants
+- **Admin low commitment alert**: Alert when below minimum players
+- Database functions + migration for cron scheduling
+- Single `run_automated_notifications()` function handles all types
+
 ---
 
 ## Future Features 📋
 
-### Quick Wins
-- Hide past sessions in pool page and dashboard
-- Add to Calendar button (emails + session page)
-- CI/CD pipeline (GitHub Actions: build, test, deploy to Vercel)
-
-### High Priority - Automated Notifications (pg_cron)
-- Automatic session reminder (24h before)
-- Uncommitted session reminder ("Please commit soon!")
-- Payment reminder (after lock, before session)
+### High Priority
 - Court unavailable alert (CourtReserve check for admin)
 
 ### Medium Priority

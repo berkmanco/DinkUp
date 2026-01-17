@@ -40,7 +40,9 @@ type NotificationType =
   | "roster_locked"        // Roster locked, payment due
   | "payment_reminder"     // Follow-up payment reminder
   | "session_reminder"     // 24h before session
-  | "waitlist_promoted";   // Player promoted from waitlist
+  | "waitlist_promoted"    // Player promoted from waitlist
+  | "commitment_reminder"  // Remind uncommitted players to opt in
+  | "admin_low_commitment"; // Alert admin when not enough players committed
 
 interface NotifyRequest {
   type: NotificationType;
@@ -164,6 +166,16 @@ serve(async (req: Request) => {
       case "waitlist_promoted":
         if (!sessionId || !playerId) throw new Error("sessionId and playerId required for waitlist_promoted");
         results = await notifyWaitlistPromoted(supabase, sessionId, playerId);
+        break;
+
+      case "commitment_reminder":
+        if (!sessionId) throw new Error("sessionId required for commitment_reminder");
+        results = await notifyCommitmentReminder(supabase, sessionId);
+        break;
+
+      case "admin_low_commitment":
+        if (!sessionId) throw new Error("sessionId required for admin_low_commitment");
+        results = await notifyAdminLowCommitment(supabase, sessionId);
         break;
 
       default:
@@ -904,4 +916,169 @@ function emailTemplate(params: EmailTemplateParams): string {
 </body>
 </html>
   `.trim();
+}
+
+// ============================================
+// COMMITMENT REMINDER (for uncommitted players)
+// ============================================
+
+async function notifyCommitmentReminder(supabase: ReturnType<typeof createClient>, sessionId: string) {
+  // Get session details
+  const { data: session, error: sessionError } = await supabase
+    .from("sessions")
+    .select("id, proposed_date, proposed_time, min_players, court_location, pool:pools(id, name)")
+    .eq("id", sessionId)
+    .single();
+
+  if (sessionError || !session) throw new Error("Session not found");
+
+  // Get pool members who haven't committed yet
+  const { data: uncommittedPlayers, error: playersError } = await supabase
+    .from("pool_players")
+    .select("player:players(id, name, email, phone, notification_preferences)")
+    .eq("pool_id", session.pool.id)
+    .eq("is_active", true);
+
+  if (playersError) throw playersError;
+
+  // Get players who have already responded (committed, paid, maybe, or opted_out)
+  const { data: respondedParticipants } = await supabase
+    .from("session_participants")
+    .select("player_id")
+    .eq("session_id", sessionId);
+
+  const respondedIds = new Set((respondedParticipants || []).map(p => p.player_id));
+
+  const results = { sent: 0, failed: 0, errors: [] as string[] };
+  const sessionDate = formatDate(session.proposed_date);
+  const sessionTime = formatTime(session.proposed_time);
+
+  // Generate calendar URL
+  const calendarUrl = generateGoogleCalendarUrl(
+    `🏓 ${session.pool.name} Pickleball`,
+    session.court_location || "Location TBD",
+    session.proposed_date,
+    session.proposed_time,
+    90,
+    `${APP_URL}/s/${sessionId}`
+  );
+
+  for (const pp of uncommittedPlayers || []) {
+    const player = pp.player as Player;
+    
+    // Skip if already responded
+    if (respondedIds.has(player.id)) continue;
+    
+    if (!player.email || !player.notification_preferences?.email) continue;
+
+    const html = emailTemplate({
+      title: "Are You In? 🏓",
+      preheader: `${session.pool.name} needs your RSVP for ${sessionDate}`,
+      body: `
+        <p>Hey ${getFirstName(player.name)}!</p>
+        <p>We're trying to get a headcount for the upcoming <strong>${session.pool.name}</strong> session:</p>
+        <div style="background: #f8f9fa; padding: 16px; border-radius: 8px; margin: 16px 0;">
+          <p style="margin: 0;"><strong>📅 Date:</strong> ${sessionDate}</p>
+          <p style="margin: 8px 0 0 0;"><strong>⏰ Time:</strong> ${sessionTime}</p>
+          ${session.court_location ? `<p style="margin: 8px 0 0 0;"><strong>📍 Location:</strong> ${session.court_location}</p>` : ""}
+          <p style="margin: 12px 0 0 0;"><a href="${calendarUrl}" style="color: #3CBBB1; font-size: 14px;">📅 Add to Google Calendar</a></p>
+        </div>
+        <p>Please let us know if you can make it!</p>
+      `,
+      ctaText: "I'm In!",
+      ctaUrl: `${APP_URL}/s/${sessionId}`,
+      secondaryCtaText: "View Session Details",
+      secondaryCtaUrl: `${APP_URL}/s/${sessionId}`,
+    });
+
+    try {
+      await sendEmail(player.email, `RSVP Needed: ${session.pool.name} - ${sessionDate}`, html);
+      results.sent++;
+      await logNotification(supabase, "commitment_reminder", sessionId, player.id, "email", true);
+    } catch (err) {
+      results.failed++;
+      results.errors.push(`${player.email}: ${(err as Error).message}`);
+    }
+  }
+
+  return results;
+}
+
+// ============================================
+// ADMIN LOW COMMITMENT ALERT
+// ============================================
+
+async function notifyAdminLowCommitment(supabase: ReturnType<typeof createClient>, sessionId: string) {
+  // Get session details with pool and owner
+  const { data: session, error: sessionError } = await supabase
+    .from("sessions")
+    .select("id, proposed_date, proposed_time, min_players, court_location, pool:pools(id, name, owner_id)")
+    .eq("id", sessionId)
+    .single();
+
+  if (sessionError || !session) throw new Error("Session not found");
+
+  // Get current committed count
+  const { count: committedCount } = await supabase
+    .from("session_participants")
+    .select("*", { count: "exact", head: true })
+    .eq("session_id", sessionId)
+    .in("status", ["committed", "paid"]);
+
+  const committed = committedCount || 0;
+  const minPlayers = session.min_players || 4;
+
+  // Only alert if below minimum
+  if (committed >= minPlayers) {
+    return { sent: 0, failed: 0, errors: [], message: "Enough players committed" };
+  }
+
+  // Get the pool owner (admin)
+  const { data: owner, error: ownerError } = await supabase
+    .from("players")
+    .select("id, name, email, notification_preferences")
+    .eq("user_id", session.pool.owner_id)
+    .single();
+
+  if (ownerError || !owner) throw new Error("Pool owner not found");
+
+  const results = { sent: 0, failed: 0, errors: [] as string[] };
+  const sessionDate = formatDate(session.proposed_date);
+  const sessionTime = formatTime(session.proposed_time);
+  const needed = minPlayers - committed;
+
+  if (owner.email) {
+    const html = emailTemplate({
+      title: "⚠️ Low Commitment Alert",
+      preheader: `Only ${committed}/${minPlayers} committed for ${sessionDate}`,
+      body: `
+        <p>Hey ${getFirstName(owner.name)}!</p>
+        <p>Your <strong>${session.pool.name}</strong> session is coming up, but commitment is low:</p>
+        <div style="background: #fef3c7; padding: 16px; border-radius: 8px; margin: 16px 0; border-left: 4px solid #f59e0b;">
+          <p style="margin: 0; color: #92400e;"><strong>📅 Date:</strong> ${sessionDate} at ${sessionTime}</p>
+          <p style="margin: 8px 0 0 0; color: #92400e;"><strong>👥 Committed:</strong> ${committed} / ${minPlayers} minimum</p>
+          <p style="margin: 8px 0 0 0; color: #92400e;"><strong>🔢 Need ${needed} more player${needed > 1 ? 's' : ''}</strong></p>
+        </div>
+        <p>You may want to:</p>
+        <ul style="margin: 16px 0; padding-left: 24px; color: #3f3f46;">
+          <li>Send a reminder to uncommitted players</li>
+          <li>Reach out to specific people directly</li>
+          <li>Consider cancelling if you can't fill the session</li>
+        </ul>
+      `,
+      ctaText: "Manage Session",
+      ctaUrl: `${APP_URL}/s/${sessionId}`,
+    });
+
+    try {
+      await sendEmail(owner.email, `⚠️ ${session.pool.name}: Only ${committed}/${minPlayers} committed for ${sessionDate}`, html);
+      results.sent++;
+      await logNotification(supabase, "admin_low_commitment", sessionId, owner.id, "email", true);
+    } catch (err) {
+      results.failed++;
+      results.errors.push(`${owner.email}: ${(err as Error).message}`);
+    }
+  }
+
+  return results;
 }
