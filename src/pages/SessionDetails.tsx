@@ -23,7 +23,7 @@ import {
   PaymentWithParticipant,
   PaymentSummary,
 } from '../lib/payments'
-import { notifyRosterLocked, notifyPaymentReminder } from '../lib/notifications'
+import { notifyRosterLocked, notifyPaymentReminder, notifySessionReminder } from '../lib/notifications'
 
 export default function SessionDetails() {
   const { id } = useParams<{ id: string }>()
@@ -46,6 +46,7 @@ export default function SessionDetails() {
   const [lockingRoster, setLockingRoster] = useState(false)
   const [updatingPayment, setUpdatingPayment] = useState<string | null>(null)
   const [sendingReminder, setSendingReminder] = useState(false)
+  const [sendingSessionReminder, setSendingSessionReminder] = useState(false)
   const [notificationStatus, setNotificationStatus] = useState<string | null>(null)
   
   // Session management state
@@ -301,6 +302,31 @@ export default function SessionDetails() {
       setNotificationStatus(`⚠️ Failed to send reminders: ${err.message}`)
     } finally {
       setSendingReminder(false)
+    }
+  }
+
+  async function handleSendSessionReminder() {
+    if (!session || sendingSessionReminder) return
+
+    if (!confirm('Send a session reminder to all committed players? This will remind them about the time and location.')) {
+      return
+    }
+
+    try {
+      setSendingSessionReminder(true)
+      setNotificationStatus(null)
+      
+      const result = await notifySessionReminder(session.id)
+      
+      if (result.success) {
+        setNotificationStatus(`✓ Session reminder sent to ${result.sent} player(s)`)
+      } else {
+        setNotificationStatus(`⚠️ Failed to send reminders: ${result.error}`)
+      }
+    } catch (err: any) {
+      setNotificationStatus(`⚠️ Failed to send reminders: ${err.message}`)
+    } finally {
+      setSendingSessionReminder(false)
     }
   }
 
@@ -779,6 +805,13 @@ export default function SessionDetails() {
               {lockingRoster ? 'Locking Roster...' : '🔒 Lock Roster & Generate Payments'}
             </button>
             <button
+              onClick={handleSendSessionReminder}
+              disabled={sendingSessionReminder || participants.filter(p => p.status === 'committed' || p.status === 'paid').length === 0}
+              className="bg-blue-500 text-white py-2 px-4 rounded-md hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition"
+            >
+              {sendingSessionReminder ? 'Sending...' : '📣 Send Reminder'}
+            </button>
+            <button
               onClick={handleCancelSession}
               className="bg-gray-200 text-gray-700 py-2 px-4 rounded-md hover:bg-gray-300 transition"
             >
@@ -841,6 +874,15 @@ export default function SessionDetails() {
             </div>
             {isOwner && (
               <div className="flex items-center gap-2">
+                {!isPast && (
+                  <button
+                    onClick={handleSendSessionReminder}
+                    disabled={sendingSessionReminder}
+                    className="text-sm bg-blue-500 text-white px-3 py-1.5 rounded hover:bg-blue-600 disabled:opacity-50 transition"
+                  >
+                    {sendingSessionReminder ? 'Sending...' : '📣 Remind'}
+                  </button>
+                )}
                 <button
                   onClick={handleUnlockRoster}
                   disabled={unlockingRoster}
