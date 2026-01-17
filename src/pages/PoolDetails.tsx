@@ -460,9 +460,12 @@ export default function PoolDetails() {
           ) : (
             <div className="space-y-2">
               {sessions.map((session) => {
-                const sessionDate = new Date(session.proposed_date)
-                const isToday = sessionDate.toDateString() === new Date().toDateString()
-                const isPast = sessionDate < new Date() && !isToday
+                // Append T00:00:00 to force local timezone interpretation (not UTC)
+                const sessionDate = new Date(`${session.proposed_date}T00:00:00`)
+                const today = new Date()
+                today.setHours(0, 0, 0, 0)
+                const isToday = sessionDate.getTime() === today.getTime()
+                const isPast = sessionDate < today
 
                 return (
                   <Link

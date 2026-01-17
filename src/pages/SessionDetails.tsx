@@ -443,13 +443,15 @@ export default function SessionDetails() {
     )
   }
 
-  const sessionDate = new Date(session.proposed_date)
+  // Append T00:00:00 to force local timezone interpretation (not UTC)
+  const sessionDate = new Date(`${session.proposed_date}T00:00:00`)
   const sessionDateTime = new Date(
     `${session.proposed_date}T${session.proposed_time}`
   )
   const isPast = sessionDateTime < new Date()
-  const isToday =
-    sessionDate.toDateString() === new Date().toDateString()
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const isToday = sessionDate.getTime() === today.getTime()
 
   return (
     <div className="max-w-4xl mx-auto mt-8 px-4">
