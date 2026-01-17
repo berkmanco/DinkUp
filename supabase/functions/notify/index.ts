@@ -44,6 +44,7 @@ interface NotifyRequest {
   playerId?: string;       // For single-player notifications
   playerIds?: string[];    // For batch notifications
   customMessage?: string;  // Optional override message
+  testEmail?: string;      // For testing: only send to this email address
 }
 
 interface Player {
@@ -96,7 +97,7 @@ serve(async (req: Request) => {
 
   try {
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-    const { type, sessionId, playerId, playerIds, customMessage }: NotifyRequest = await req.json();
+    const { type, sessionId, playerId, playerIds, customMessage, testEmail }: NotifyRequest = await req.json();
 
     if (!type) {
       throw new Error("Missing required field: type");
@@ -122,7 +123,7 @@ serve(async (req: Request) => {
 
       case "session_reminder":
         if (!sessionId) throw new Error("sessionId required for session_reminder");
-        results = await notifySessionReminder(supabase, sessionId);
+        results = await notifySessionReminder(supabase, sessionId, testEmail);
         break;
 
       case "waitlist_promoted":
@@ -365,7 +366,7 @@ async function notifyPaymentReminder(supabase: ReturnType<typeof createClient>, 
   return results;
 }
 
-async function notifySessionReminder(supabase: ReturnType<typeof createClient>, sessionId: string) {
+async function notifySessionReminder(supabase: ReturnType<typeof createClient>, sessionId: string, testEmail?: string) {
   const { data: session, error: sessionError } = await supabase
     .from("sessions")
     .select("id, proposed_date, proposed_time, court_location, court_numbers, pool:pools(id, name, owner_id)")
@@ -431,6 +432,11 @@ async function notifySessionReminder(supabase: ReturnType<typeof createClient>, 
 
   for (const participant of participants || []) {
     const player = participant.player as Player;
+    
+    // If testEmail is set, only notify that specific email
+    if (testEmail && player.email !== testEmail) {
+      continue;
+    }
     
     // Check if this player has a pending payment
     const pendingPayment = pendingPaymentsByPlayer.get(player.id);

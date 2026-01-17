@@ -113,6 +113,11 @@
 - Granular notification settings
 - Dynamic OG meta tags for session links
 - Google Maps link for court location in emails
+- Allow player to leave a pool
+- Delete account functionality
+- Opt out of all notifications (master toggle)
+- Enhanced account management (settings page improvements)
+- Timezone support for session times
 
 ---
 
