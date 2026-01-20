@@ -918,6 +918,12 @@ export default function SessionDetails() {
             The cost per guest will be fixed based on the current headcount.
           </p>
           <div className="flex flex-wrap gap-3">
+            <Link
+              to={`/s/${session.id}/edit`}
+              className="bg-gray-100 text-gray-700 py-2 px-4 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2 transition font-medium"
+            >
+              ✏️ Edit Session
+            </Link>
             <button
               onClick={handleLockRoster}
               disabled={lockingRoster || (costSummary?.total_players || 0) < session.min_players}
