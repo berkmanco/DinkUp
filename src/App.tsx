@@ -78,6 +78,14 @@ function App() {
               }
             />
             <Route
+              path="s/:id/edit"
+              element={
+                <ProtectedRoute>
+                  <CreateSession />
+                </ProtectedRoute>
+              }
+            />
+            <Route
               path="settings"
               element={
                 <ProtectedRoute>

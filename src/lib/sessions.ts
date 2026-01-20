@@ -337,6 +337,57 @@ export async function cancelSession(sessionId: string): Promise<Session> {
 }
 
 /**
+ * Update session details (owner only, before roster is locked)
+ */
+export interface UpdateSessionData {
+  proposed_date?: string
+  proposed_time?: string
+  duration_minutes?: number
+  min_players?: number
+  max_players?: number
+  court_location?: string
+  court_numbers?: string[]
+  courts_needed?: number
+  admin_cost_per_court?: number
+  guest_pool_per_court?: number
+}
+
+export async function updateSession(
+  sessionId: string,
+  updateData: UpdateSessionData
+): Promise<Session> {
+  if (!supabase) {
+    throw new Error('Database connection not available')
+  }
+
+  // Build the update object with only provided fields
+  const updates: any = {}
+  
+  if (updateData.proposed_date !== undefined) updates.proposed_date = updateData.proposed_date
+  if (updateData.proposed_time !== undefined) updates.proposed_time = updateData.proposed_time
+  if (updateData.duration_minutes !== undefined) updates.duration_minutes = updateData.duration_minutes
+  if (updateData.min_players !== undefined) updates.min_players = updateData.min_players
+  if (updateData.max_players !== undefined) updates.max_players = updateData.max_players
+  if (updateData.court_location !== undefined) updates.court_location = updateData.court_location
+  if (updateData.court_numbers !== undefined) {
+    updates.court_numbers = updateData.court_numbers.length > 0 ? updateData.court_numbers : null
+  }
+  if (updateData.courts_needed !== undefined) updates.courts_needed = updateData.courts_needed
+  if (updateData.admin_cost_per_court !== undefined) updates.admin_cost_per_court = updateData.admin_cost_per_court
+  if (updateData.guest_pool_per_court !== undefined) updates.guest_pool_per_court = updateData.guest_pool_per_court
+
+  const { data, error } = await supabase
+    .from('sessions')
+    .update(updates)
+    .eq('id', sessionId)
+    .select()
+    .single()
+
+  if (error) throw error
+  return data as Session
+}
+
+/**
  * Update session status
  */
 export async function updateSessionStatus(

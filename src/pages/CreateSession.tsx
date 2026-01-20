@@ -1,13 +1,14 @@
 import { useState, useEffect } from 'react'
-import { useSearchParams, useNavigate, Link } from 'react-router-dom'
+import { useSearchParams, useNavigate, Link, useParams } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { getPool, isPoolOwner, Pool } from '../lib/pools'
-import { createSession, CreateSessionData } from '../lib/sessions'
+import { createSession, CreateSessionData, getSession, updateSession } from '../lib/sessions'
 import { notifySessionCreated } from '../lib/notifications'
 import { checkCourtAvailability, calculateEndTime, AvailableCourt } from '../lib/courtreserve'
 
 export default function CreateSession() {
   const [searchParams] = useSearchParams()
+  const { id: sessionId } = useParams<{ id: string }>()
   const poolId = searchParams.get('pool')
   const navigate = useNavigate()
   const { user } = useAuth()
@@ -16,6 +17,7 @@ export default function CreateSession() {
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [isOwner, setIsOwner] = useState(false)
+  const isEditMode = !!sessionId
 
   const [formData, setFormData] = useState<CreateSessionData>({
     pool_id: poolId || '',
@@ -42,32 +44,74 @@ export default function CreateSession() {
   const [availabilityError, setAvailabilityError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!poolId || !user) return
-    const currentPoolId = poolId
+    if (!user) return
     const currentUserId = user.id
 
-    async function loadPool() {
+    async function loadData() {
       try {
         setLoading(true)
-        const poolData = await getPool(currentPoolId)
-        setPool(poolData)
-        setFormData((prev) => ({ ...prev, pool_id: poolData.id }))
+        
+        // If editing, load the session first
+        if (sessionId) {
+          const sessionData = await getSession(sessionId)
+          
+          // Check ownership
+          const owner = await isPoolOwner(sessionData.pool_id, currentUserId)
+          setIsOwner(owner)
+          
+          if (!owner) {
+            setError('You must be the pool owner to edit sessions')
+            return
+          }
+          
+          if (sessionData.roster_locked) {
+            setError('Cannot edit a session with a locked roster')
+            return
+          }
+          
+          // Load pool data
+          const poolData = await getPool(sessionData.pool_id)
+          setPool(poolData)
+          
+          // Populate form with existing session data
+          setFormData({
+            pool_id: sessionData.pool_id,
+            proposed_date: sessionData.proposed_date,
+            proposed_time: sessionData.proposed_time,
+            duration_minutes: sessionData.duration_minutes,
+            min_players: sessionData.min_players,
+            max_players: sessionData.max_players,
+            court_location: sessionData.court_location || '',
+            court_numbers: sessionData.court_numbers || [],
+            courts_needed: sessionData.courts_needed,
+            admin_cost_per_court: sessionData.admin_cost_per_court,
+            guest_pool_per_court: sessionData.guest_pool_per_court,
+          })
+          setCourtNumbersInput(sessionData.court_numbers?.join(', ') || '')
+        } else if (poolId) {
+          // Creating new session
+          const poolData = await getPool(poolId)
+          setPool(poolData)
+          setFormData((prev) => ({ ...prev, pool_id: poolData.id }))
 
-        const owner = await isPoolOwner(poolData.id, currentUserId)
-        setIsOwner(owner)
+          const owner = await isPoolOwner(poolData.id, currentUserId)
+          setIsOwner(owner)
 
-        if (!owner) {
-          setError('You must be the pool owner to create sessions')
+          if (!owner) {
+            setError('You must be the pool owner to create sessions')
+          }
+        } else {
+          setError('No pool or session specified')
         }
       } catch (err: any) {
-        setError(err.message || 'Failed to load pool')
+        setError(err.message || 'Failed to load data')
       } finally {
         setLoading(false)
       }
     }
 
-    loadPool()
-  }, [poolId, user])
+    loadData()
+  }, [sessionId, poolId, user])
 
   // Check court availability at Pickle Shack
   const handleCheckAvailability = async () => {
@@ -128,17 +172,27 @@ export default function CreateSession() {
         .map(s => s.trim())
         .filter(s => s.length > 0)
       
-      const session = await createSession({
-        ...formData,
-        court_numbers: courtNumbers,
-      })
-      
-      // Notify pool members about the new session (fire and forget)
-      notifySessionCreated(session.id).catch(console.error)
-      
-      navigate(`/s/${session.id}`)
+      if (isEditMode && sessionId) {
+        // Update existing session
+        await updateSession(sessionId, {
+          ...formData,
+          court_numbers: courtNumbers,
+        })
+        navigate(`/s/${sessionId}`)
+      } else {
+        // Create new session
+        const session = await createSession({
+          ...formData,
+          court_numbers: courtNumbers,
+        })
+        
+        // Notify pool members about the new session (fire and forget)
+        notifySessionCreated(session.id).catch(console.error)
+        
+        navigate(`/s/${session.id}`)
+      }
     } catch (err: any) {
-      setError(err.message || 'Failed to create session')
+      setError(err.message || (isEditMode ? 'Failed to update session' : 'Failed to create session'))
     } finally {
       setSubmitting(false)
     }
@@ -196,13 +250,13 @@ export default function CreateSession() {
     <div className="max-w-2xl mx-auto mt-8 px-4">
       <div className="mb-6">
         <Link
-          to={pool ? `/p/${pool.slug}` : '/pools'}
+          to={isEditMode && sessionId ? `/s/${sessionId}` : pool ? `/p/${pool.slug}` : '/pools'}
           className="text-[#3CBBB1] hover:text-[#35a8a0] text-sm mb-4 inline-block"
         >
-          ← Back to {pool?.name || 'Pools'}
+          ← Back to {isEditMode ? 'Session' : pool?.name || 'Pools'}
         </Link>
         <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
-          Create New Session
+          {isEditMode ? 'Edit Session' : 'Create New Session'}
         </h1>
         {pool && (
           <p className="text-gray-600 mt-2">for {pool.name}</p>
@@ -455,7 +509,7 @@ export default function CreateSession() {
         <div className="flex gap-4">
           <button
             type="button"
-            onClick={() => navigate(pool ? `/p/${pool.slug}` : '/pools')}
+            onClick={() => navigate(isEditMode && sessionId ? `/s/${sessionId}` : pool ? `/p/${pool.slug}` : '/pools')}
             className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-[#3CBBB1]"
           >
             Cancel
@@ -465,7 +519,7 @@ export default function CreateSession() {
             disabled={submitting}
             className="flex-1 bg-[#3CBBB1] text-white py-2 px-4 rounded-md hover:bg-[#35a8a0] focus:outline-none focus:ring-2 focus:ring-[#3CBBB1] focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition"
           >
-            {submitting ? 'Creating...' : 'Create Session'}
+            {submitting ? (isEditMode ? 'Saving...' : 'Creating...') : (isEditMode ? 'Save Changes' : 'Create Session')}
           </button>
         </div>
       </form>

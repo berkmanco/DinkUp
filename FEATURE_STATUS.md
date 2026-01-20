@@ -76,6 +76,7 @@
 - App icons (192x192, 512x512)
 
 ### 10. Session Management
+- **Edit session** (owner can edit all details before roster is locked)
 - Delete session (cascade deletes participants/payments)
 - Unlock roster (resets to proposed, deletes payments)
 - Cancel session (soft delete, preserves data)
@@ -93,7 +94,7 @@
 - Auto-formats phone to E.164, strips @ from Venmo
 
 ### 13. Testing
-- **155 automated tests** via Vitest
+- **162 automated tests** via Vitest
 - Coverage: pools, sessions, registration, payments, notifications, venmo-parser, courtreserve
 - Run with `npm test`
 
@@ -132,6 +133,7 @@
 - Custom Supabase auth email templates
 - Multi-use registration links
 - Player can explicitly opt-out of a session (stop getting reminders)
+- Detailed notification preferences
 
 ### Backlog
 - **Session time voting** - Admin proposes 2-3 time slots, players vote, system picks winner

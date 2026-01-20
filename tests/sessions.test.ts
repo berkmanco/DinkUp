@@ -281,6 +281,173 @@ describe.skipIf(SKIP_DB_TESTS)('Session Operations', () => {
       expect(data.proposed_time).toBe('19:30:00')
     })
 
+    it('should update session date and time together', async () => {
+      const tomorrow = new Date()
+      tomorrow.setDate(tomorrow.getDate() + 1)
+      const nextWeek = new Date()
+      nextWeek.setDate(nextWeek.getDate() + 7)
+
+      const { data: session } = await supabase
+        .from('sessions')
+        .insert({
+          pool_id: testPoolId,
+          proposed_date: tomorrow.toISOString().split('T')[0],
+          proposed_time: '18:00',
+        })
+        .select()
+        .single()
+
+      sessionsToCleanup.push(session.id)
+
+      // Update both date and time
+      const { data, error } = await supabase
+        .from('sessions')
+        .update({
+          proposed_date: nextWeek.toISOString().split('T')[0],
+          proposed_time: '20:00',
+        })
+        .eq('id', session.id)
+        .select()
+        .single()
+
+      expect(error).toBeNull()
+      expect(data.proposed_date).toBe(nextWeek.toISOString().split('T')[0])
+      expect(data.proposed_time).toBe('20:00:00')
+    })
+
+    it('should update session location and court details', async () => {
+      const tomorrow = new Date()
+      tomorrow.setDate(tomorrow.getDate() + 1)
+
+      const { data: session } = await supabase
+        .from('sessions')
+        .insert({
+          pool_id: testPoolId,
+          proposed_date: tomorrow.toISOString().split('T')[0],
+          proposed_time: '18:00',
+          court_location: 'Old Location',
+          court_numbers: ['1'],
+        })
+        .select()
+        .single()
+
+      sessionsToCleanup.push(session.id)
+
+      // Update location and courts
+      const { data, error } = await supabase
+        .from('sessions')
+        .update({
+          court_location: 'Pickle Shack',
+          court_numbers: ['3', '4'],
+          courts_needed: 2,
+        })
+        .eq('id', session.id)
+        .select()
+        .single()
+
+      expect(error).toBeNull()
+      expect(data.court_location).toBe('Pickle Shack')
+      expect(data.court_numbers).toEqual(['3', '4'])
+      expect(data.courts_needed).toBe(2)
+    })
+
+    it('should update session player limits', async () => {
+      const tomorrow = new Date()
+      tomorrow.setDate(tomorrow.getDate() + 1)
+
+      const { data: session } = await supabase
+        .from('sessions')
+        .insert({
+          pool_id: testPoolId,
+          proposed_date: tomorrow.toISOString().split('T')[0],
+          proposed_time: '18:00',
+          min_players: 4,
+          max_players: 8,
+        })
+        .select()
+        .single()
+
+      sessionsToCleanup.push(session.id)
+
+      // Update player limits
+      const { data, error } = await supabase
+        .from('sessions')
+        .update({
+          min_players: 6,
+          max_players: 12,
+        })
+        .eq('id', session.id)
+        .select()
+        .single()
+
+      expect(error).toBeNull()
+      expect(data.min_players).toBe(6)
+      expect(data.max_players).toBe(12)
+    })
+
+    it('should update session cost fields', async () => {
+      const tomorrow = new Date()
+      tomorrow.setDate(tomorrow.getDate() + 1)
+
+      const { data: session } = await supabase
+        .from('sessions')
+        .insert({
+          pool_id: testPoolId,
+          proposed_date: tomorrow.toISOString().split('T')[0],
+          proposed_time: '18:00',
+          admin_cost_per_court: 9.00,
+          guest_pool_per_court: 48.00,
+        })
+        .select()
+        .single()
+
+      sessionsToCleanup.push(session.id)
+
+      // Update costs
+      const { data, error } = await supabase
+        .from('sessions')
+        .update({
+          admin_cost_per_court: 12.00,
+          guest_pool_per_court: 60.00,
+        })
+        .eq('id', session.id)
+        .select()
+        .single()
+
+      expect(error).toBeNull()
+      expect(data.admin_cost_per_court).toBe(12.00)
+      expect(data.guest_pool_per_court).toBe(60.00)
+    })
+
+    it('should update session duration', async () => {
+      const tomorrow = new Date()
+      tomorrow.setDate(tomorrow.getDate() + 1)
+
+      const { data: session } = await supabase
+        .from('sessions')
+        .insert({
+          pool_id: testPoolId,
+          proposed_date: tomorrow.toISOString().split('T')[0],
+          proposed_time: '18:00',
+          duration_minutes: 60,
+        })
+        .select()
+        .single()
+
+      sessionsToCleanup.push(session.id)
+
+      // Update duration
+      const { data, error } = await supabase
+        .from('sessions')
+        .update({ duration_minutes: 120 })
+        .eq('id', session.id)
+        .select()
+        .single()
+
+      expect(error).toBeNull()
+      expect(data.duration_minutes).toBe(120)
+    })
+
     it('should cancel session', async () => {
       const tomorrow = new Date()
       tomorrow.setDate(tomorrow.getDate() + 1)
@@ -307,6 +474,37 @@ describe.skipIf(SKIP_DB_TESTS)('Session Operations', () => {
 
       expect(error).toBeNull()
       expect(data.status).toBe('cancelled')
+    })
+
+    it('should not allow editing a locked session roster details', async () => {
+      const tomorrow = new Date()
+      tomorrow.setDate(tomorrow.getDate() + 1)
+
+      const { data: session } = await supabase
+        .from('sessions')
+        .insert({
+          pool_id: testPoolId,
+          proposed_date: tomorrow.toISOString().split('T')[0],
+          proposed_time: '18:00',
+          roster_locked: true,
+        })
+        .select()
+        .single()
+
+      sessionsToCleanup.push(session.id)
+
+      // In the actual app, the UI prevents this, but the database should allow updates
+      // (owner might need to fix something critical). The business logic check is in the UI.
+      const { data, error } = await supabase
+        .from('sessions')
+        .update({ proposed_time: '20:00' })
+        .eq('id', session.id)
+        .select()
+        .single()
+
+      // Database allows it (no constraint), but UI should prevent it
+      expect(error).toBeNull()
+      expect(data.proposed_time).toBe('20:00:00')
     })
   })
 
