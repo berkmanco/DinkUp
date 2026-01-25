@@ -41,12 +41,18 @@ describe.skipIf(SKIP_DB_TESTS)('Edge Function Notification Preferences Integrati
     // Create a test session
     const session = await createTestSession(supabase, testPoolId)
     testSessionId = session.id
+    
+    // Clean up any existing preferences for this user
+    await supabase
+      .from('notification_preferences')
+      .delete()
+      .eq('user_id', testUserId)
   })
 
   describe('Session Reminders', () => {
     it('should send email when email enabled, skip SMS when disabled', async () => {
       // Set preferences: email ON, SMS OFF
-      await updatePreference(testUserId, 'session_reminder_24h', true, false)
+      await updatePreference(testUserId, 'session_reminder_24h', true, false, supabase)
 
       // Invoke the Edge Function
       const { data, error } = await supabase.functions.invoke('notify', {
@@ -80,7 +86,7 @@ describe.skipIf(SKIP_DB_TESTS)('Edge Function Notification Preferences Integrati
 
     it('should skip both email and SMS when both disabled', async () => {
       // Disable both
-      await updatePreference(testUserId, 'session_reminder_24h', false, false)
+      await updatePreference(testUserId, 'session_reminder_24h', false, false, supabase)
 
       const logCountBefore = await supabase
         .from('notifications_log')
@@ -106,7 +112,7 @@ describe.skipIf(SKIP_DB_TESTS)('Edge Function Notification Preferences Integrati
 
     it('should send both when both enabled', async () => {
       // Enable both
-      await updatePreference(testUserId, 'session_reminder_24h', true, true)
+      await updatePreference(testUserId, 'session_reminder_24h', true, true, supabase)
 
       // Ensure player has phone number
       await supabase
@@ -143,8 +149,8 @@ describe.skipIf(SKIP_DB_TESTS)('Edge Function Notification Preferences Integrati
   describe('Payment Requests', () => {
     it('should respect payment_request preferences independently', async () => {
       // Session reminder ON, payment request OFF
-      await updatePreference(testUserId, 'session_reminder_24h', true, true)
-      await updatePreference(testUserId, 'payment_request', false, false)
+      await updatePreference(testUserId, 'session_reminder_24h', true, true, supabase)
+      await updatePreference(testUserId, 'payment_request', false, false, supabase)
 
       // Lock roster to trigger payment requests
       await supabase.functions.invoke('notify', {
@@ -222,7 +228,7 @@ describe.skipIf(SKIP_DB_TESTS)('Edge Function Notification Preferences Integrati
   describe('Notification Type Mapping', () => {
     it('should correctly map roster_locked to payment_request preference', async () => {
       // Disable payment_request
-      await updatePreference(testUserId, 'payment_request', false, false)
+      await updatePreference(testUserId, 'payment_request', false, false, supabase)
 
       // Send roster_locked notification
       await supabase.functions.invoke('notify', {
@@ -245,8 +251,8 @@ describe.skipIf(SKIP_DB_TESTS)('Edge Function Notification Preferences Integrati
 
     it('should correctly map payment_reminder to payment_reminder preference', async () => {
       // Enable only payment_reminder
-      await updatePreference(testUserId, 'payment_request', false, false)
-      await updatePreference(testUserId, 'payment_reminder', true, false)
+      await updatePreference(testUserId, 'payment_request', false, false, supabase)
+      await updatePreference(testUserId, 'payment_reminder', true, false, supabase)
 
       // Send payment reminder
       await supabase.functions.invoke('notify', {

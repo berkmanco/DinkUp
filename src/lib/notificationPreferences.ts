@@ -1,4 +1,5 @@
-import { supabase } from './supabase'
+import { supabase as defaultSupabase } from './supabase'
+import type { SupabaseClient } from '@supabase/supabase-js'
 
 export type NotificationType =
   | 'session_reminder_24h'
@@ -70,9 +71,10 @@ const DEFAULT_PREFERENCES: Record<NotificationType, { email: boolean; sms: boole
  * Returns defaults for any types not yet in database
  */
 export async function getUserPreferences(
-  userId: string
+  userId: string,
+  client: SupabaseClient = defaultSupabase
 ): Promise<Map<NotificationType, NotificationPreference>> {
-  const { data, error } = await supabase
+  const { data, error } = await client
     .from('notification_preferences')
     .select('*')
     .eq('user_id', userId)
@@ -113,9 +115,10 @@ export async function updatePreference(
   userId: string,
   notificationType: NotificationType,
   emailEnabled: boolean,
-  smsEnabled: boolean
+  smsEnabled: boolean,
+  client: SupabaseClient = defaultSupabase
 ): Promise<void> {
-  const { error } = await supabase
+  const { error } = await client
     .from('notification_preferences')
     .upsert(
       {
@@ -140,10 +143,11 @@ export async function updatePreference(
 export async function shouldNotify(
   userId: string,
   notificationType: NotificationType,
-  channel: 'email' | 'sms'
+  channel: 'email' | 'sms',
+  client: SupabaseClient = defaultSupabase
 ): Promise<boolean> {
   // Get preference for this specific type
-  const { data, error } = await supabase
+  const { data, error } = await client
     .from('notification_preferences')
     .select('email_enabled, sms_enabled')
     .eq('user_id', userId)
@@ -165,7 +169,10 @@ export async function shouldNotify(
  * Initialize default preferences for a new user
  * Called after user signs up
  */
-export async function initializeDefaultPreferences(userId: string): Promise<void> {
+export async function initializeDefaultPreferences(
+  userId: string,
+  client: SupabaseClient = defaultSupabase
+): Promise<void> {
   const preferences = Object.entries(DEFAULT_PREFERENCES).map(([type, defaults]) => ({
     user_id: userId,
     notification_type: type,
@@ -173,7 +180,7 @@ export async function initializeDefaultPreferences(userId: string): Promise<void
     sms_enabled: defaults.sms,
   }))
 
-  const { error } = await supabase
+  const { error } = await client
     .from('notification_preferences')
     .insert(preferences)
     .select()

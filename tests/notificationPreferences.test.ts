@@ -29,10 +29,16 @@ describe.skipIf(SKIP_DB_TESTS)('Notification Preferences', () => {
     const pool = await getFirstPool(supabase)
     testPoolId = pool.id
     testUserId = pool.owner_id
+    
+    // Clean up any existing preferences for this user
+    await supabase
+      .from('notification_preferences')
+      .delete()
+      .eq('user_id', testUserId)
   })
 
   it('should get default preferences for user', async () => {
-    const prefs = await getUserPreferences(testUserId)
+    const prefs = await getUserPreferences(testUserId, supabase)
     
     expect(prefs.size).toBeGreaterThanOrEqual(5)
     
@@ -45,9 +51,9 @@ describe.skipIf(SKIP_DB_TESTS)('Notification Preferences', () => {
 
   it('should update single preference', async () => {
     // Enable SMS for session reminders
-    await updatePreference(testUserId, 'session_reminder_24h', true, true)
+    await updatePreference(testUserId, 'session_reminder_24h', true, true, supabase)
     
-    const prefs = await getUserPreferences(testUserId)
+    const prefs = await getUserPreferences(testUserId, supabase)
     const pref = prefs.get('session_reminder_24h')
     
     expect(pref?.email_enabled).toBe(true)
@@ -56,9 +62,9 @@ describe.skipIf(SKIP_DB_TESTS)('Notification Preferences', () => {
 
   it('should disable email for specific type', async () => {
     // Disable email for payment reminders
-    await updatePreference(testUserId, 'payment_reminder', false, false)
+    await updatePreference(testUserId, 'payment_reminder', false, false, supabase)
     
-    const prefs = await getUserPreferences(testUserId)
+    const prefs = await getUserPreferences(testUserId, supabase)
     const pref = prefs.get('payment_reminder')
     
     expect(pref?.email_enabled).toBe(false)
@@ -67,10 +73,10 @@ describe.skipIf(SKIP_DB_TESTS)('Notification Preferences', () => {
 
   it('should check if user should be notified via email', async () => {
     // Reset to defaults
-    await updatePreference(testUserId, 'payment_request', true, false)
+    await updatePreference(testUserId, 'payment_request', true, false, supabase)
     
-    const shouldEmail = await shouldNotify(testUserId, 'payment_request', 'email')
-    const shouldSms = await shouldNotify(testUserId, 'payment_request', 'sms')
+    const shouldEmail = await shouldNotify(testUserId, 'payment_request', 'email', supabase)
+    const shouldSms = await shouldNotify(testUserId, 'payment_request', 'sms', supabase)
     
     expect(shouldEmail).toBe(true)
     expect(shouldSms).toBe(false)
@@ -78,9 +84,9 @@ describe.skipIf(SKIP_DB_TESTS)('Notification Preferences', () => {
 
   it('should check if user should be notified via SMS', async () => {
     // Enable SMS for payment requests
-    await updatePreference(testUserId, 'payment_request', true, true)
+    await updatePreference(testUserId, 'payment_request', true, true, supabase)
     
-    const shouldSms = await shouldNotify(testUserId, 'payment_request', 'sms')
+    const shouldSms = await shouldNotify(testUserId, 'payment_request', 'sms', supabase)
     expect(shouldSms).toBe(true)
   })
 
@@ -94,9 +100,9 @@ describe.skipIf(SKIP_DB_TESTS)('Notification Preferences', () => {
     
     if (!authData.user) throw new Error('Failed to create test user')
     
-    await initializeDefaultPreferences(authData.user.id)
+    await initializeDefaultPreferences(authData.user.id, supabase)
     
-    const prefs = await getUserPreferences(authData.user.id)
+    const prefs = await getUserPreferences(authData.user.id, supabase)
     expect(prefs.size).toBe(5)
     
     // All should have email ON, SMS OFF
@@ -108,26 +114,26 @@ describe.skipIf(SKIP_DB_TESTS)('Notification Preferences', () => {
 
   it('should allow independent email and SMS toggles', async () => {
     // Email ON, SMS OFF
-    await updatePreference(testUserId, 'session_reminder_24h', true, false)
-    let pref = (await getUserPreferences(testUserId)).get('session_reminder_24h')
+    await updatePreference(testUserId, 'session_reminder_24h', true, false, supabase)
+    let pref = (await getUserPreferences(testUserId, supabase)).get('session_reminder_24h')
     expect(pref?.email_enabled).toBe(true)
     expect(pref?.sms_enabled).toBe(false)
     
     // Email OFF, SMS ON
-    await updatePreference(testUserId, 'session_reminder_24h', false, true)
-    pref = (await getUserPreferences(testUserId)).get('session_reminder_24h')
+    await updatePreference(testUserId, 'session_reminder_24h', false, true, supabase)
+    pref = (await getUserPreferences(testUserId, supabase)).get('session_reminder_24h')
     expect(pref?.email_enabled).toBe(false)
     expect(pref?.sms_enabled).toBe(true)
     
     // Both OFF
-    await updatePreference(testUserId, 'session_reminder_24h', false, false)
-    pref = (await getUserPreferences(testUserId)).get('session_reminder_24h')
+    await updatePreference(testUserId, 'session_reminder_24h', false, false, supabase)
+    pref = (await getUserPreferences(testUserId, supabase)).get('session_reminder_24h')
     expect(pref?.email_enabled).toBe(false)
     expect(pref?.sms_enabled).toBe(false)
     
     // Both ON
-    await updatePreference(testUserId, 'session_reminder_24h', true, true)
-    pref = (await getUserPreferences(testUserId)).get('session_reminder_24h')
+    await updatePreference(testUserId, 'session_reminder_24h', true, true, supabase)
+    pref = (await getUserPreferences(testUserId, supabase)).get('session_reminder_24h')
     expect(pref?.email_enabled).toBe(true)
     expect(pref?.sms_enabled).toBe(true)
   })
@@ -142,18 +148,18 @@ describe.skipIf(SKIP_DB_TESTS)('Notification Preferences', () => {
     ]
     
     for (const type of types) {
-      await updatePreference(testUserId, type, true, false)
-      const shouldEmail = await shouldNotify(testUserId, type, 'email')
+      await updatePreference(testUserId, type, true, false, supabase)
+      const shouldEmail = await shouldNotify(testUserId, type, 'email', supabase)
       expect(shouldEmail).toBe(true)
     }
   })
 
   it('should persist preferences across sessions', async () => {
     // Set specific preferences
-    await updatePreference(testUserId, 'payment_reminder', false, true)
+    await updatePreference(testUserId, 'payment_reminder', false, true, supabase)
     
     // Fetch again (simulating page reload)
-    const prefs = await getUserPreferences(testUserId)
+    const prefs = await getUserPreferences(testUserId, supabase)
     const pref = prefs.get('payment_reminder')
     
     expect(pref?.email_enabled).toBe(false)
@@ -171,8 +177,8 @@ describe.skipIf(SKIP_DB_TESTS)('Notification Preferences', () => {
     if (!authData.user) throw new Error('Failed to create test user')
     
     // Should return defaults even without DB rows
-    const shouldEmail = await shouldNotify(authData.user.id, 'session_reminder_24h', 'email')
-    const shouldSms = await shouldNotify(authData.user.id, 'session_reminder_24h', 'sms')
+    const shouldEmail = await shouldNotify(authData.user.id, 'session_reminder_24h', 'email', supabase)
+    const shouldSms = await shouldNotify(authData.user.id, 'session_reminder_24h', 'sms', supabase)
     
     expect(shouldEmail).toBe(true) // Default email ON
     expect(shouldSms).toBe(false) // Default SMS OFF
