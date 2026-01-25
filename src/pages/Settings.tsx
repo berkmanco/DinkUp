@@ -302,7 +302,7 @@ export default function Settings() {
                 </span>
                 <p className="text-sm text-gray-500">
                   {phone 
-                    ? 'Receive text message notifications for time-sensitive updates including 24-hour game reminders and waitlist promotion alerts. Message frequency varies. Message and data rates may apply. Reply STOP to unsubscribe at any time.'
+                    ? 'Receive text message notifications for time-sensitive session updates including 24-hour game reminders and payment requests. Message frequency varies. Message and data rates may apply. Reply STOP to unsubscribe at any time.'
                     : 'Add a phone number above to enable SMS text message notifications'
                   }
                 </p>

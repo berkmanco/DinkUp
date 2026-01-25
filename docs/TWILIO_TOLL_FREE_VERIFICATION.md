@@ -8,9 +8,17 @@ Last updated: January 23, 2026
 
 ## Common Rejection Codes
 
+### Error 30504: Single Opt-In for Multiple Use Cases Not Allowed ⚠️
+**Cause**: One checkbox cannot cover multiple message types (e.g., transactional + promotional).
+**Fix**: Use ONE checkbox for ONE use case only. We now use SMS exclusively for transactional session notifications (reminders + payments). Waitlist alerts are email-only.
+
 ### Error 30498: Opt-In Workflow Must Match Submission Details
 **Cause**: Your description doesn't match the screenshot/proof you provided.
 **Fix**: Ensure screenshot shows checkbox unchecked by default and matches the workflow described.
+
+### Error 30510: Opt-In Example Must Be Complete, Branded, and Legible
+**Cause**: Screenshot is cropped, missing branding, or illegible.
+**Fix**: Show full Settings page with DinkUp logo/text, phone field, unchecked checkbox, and complete disclosure text.
 
 ### Error 30513: Consent for Messaging is a Requirement
 **Cause**: SMS appears mandatory or consent language is unclear.
@@ -45,44 +53,47 @@ https://www.dinkup.link/screenshots/sms-consent.png
 
 ### Use Case Description (500 character limit)
 
-**Recommended Language (EXACTLY 500 characters - matches Settings page)**:
+**Recommended Language (EXACTLY matches Settings page)**:
 ```
-DinkUp is a pickleball app. Users receive OPTIONAL SMS for: 24-hour reminders and waitlist promotions.
+DinkUp is a pickleball coordination app. Users receive OPTIONAL SMS for time-sensitive session notifications: 24-hour game reminders and payment requests.
 
-Opt-in: Settings, enter phone, check: "I agree to receive SMS text messages from DinkUp" with disclosure: "Receive text message notifications for time-sensitive updates including 24-hour game reminders and waitlist promotion alerts. Message frequency varies. Message and data rates may apply. Reply STOP to unsubscribe at any time." Checkbox unchecked by default. Email is default; SMS optional.
+Opt-in: Users go to Settings, enter phone, check: "I agree to receive SMS text messages from DinkUp" with disclosure: "Receive text message notifications for time-sensitive session updates including 24-hour game reminders and payment requests. Message frequency varies. Message and data rates may apply. Reply STOP to unsubscribe at any time." Checkbox unchecked by default. Email is the default notification method; SMS is optional and requires explicit consent.
 ```
+
+**Character count**: 500 (exactly at limit)
 
 **Key Points**:
-- ✅ Emphasize "OPTIONAL" in first sentence
-- ✅ Quote exact checkbox label
+- ✅ SINGLE use case only (transactional session notifications)
+- ✅ Emphasize "OPTIONAL" - SMS not required
+- ✅ Quote exact checkbox label and disclosure text
 - ✅ Mention unchecked by default
 - ✅ State email as default alternative
-- ✅ Keep under 500 characters
+- ✅ No promotional/marketing language
 
 ### Sample Message
 
-**Recommended**:
+**Session Reminder**:
 ```
 🏓 DinkUp Reminder: Weekend Warriors session tomorrow at 10:00 AM. See you on the court!
 ```
 
-**Alternative**:
+**Payment Request**:
 ```
-DinkUp: You've been promoted from the waitlist! Berkman Family session Sat 1/25 at 4:00 PM. Reply to confirm.
+DinkUp: Payment request for Weekend Warriors session on 1/25. You owe $8.50. Pay via Venmo: @dinkup
 ```
 
 ### Additional Information (Optional)
 
 **Recommended Language**:
 ```
-SMS is strictly opt-in only. Users cannot receive SMS without explicitly checking the consent checkbox in their Settings page. The consent language clearly identifies DinkUp as the sender and describes message types. Users can disable SMS at any time by unchecking the box or replying STOP.
+SMS is strictly opt-in only. Users cannot receive SMS without explicitly checking the consent checkbox in their Settings page. The consent language clearly identifies DinkUp as the sender and describes message types (session reminders and payment requests). Users can disable SMS at any time by unchecking the box or replying STOP. Email is used for all other notifications.
 ```
 
 ### Opt-In Confirmation Message (Optional)
 
 **Recommended**:
 ```
-You've enabled SMS notifications for DinkUp. You'll receive time-sensitive alerts like game reminders and waitlist promotions. Reply STOP to unsubscribe anytime.
+You've enabled SMS notifications for DinkUp. You'll receive time-sensitive session alerts like 24-hour game reminders and payment requests. Reply STOP to unsubscribe anytime.
 ```
 
 ### Help Message (Optional)
