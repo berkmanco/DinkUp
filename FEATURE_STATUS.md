@@ -102,9 +102,9 @@
 - **Duplicate prevention** - checks for existing email in pool
 - See `docs/MULTI_USE_REGISTRATION.md` for details
 
-### 14. Testing
-- **168 automated tests** via Vitest
-- Coverage: pools, sessions, registration (including multi-use), payments, notifications, venmo-parser, courtreserve
+### 15. Testing
+- **208 automated tests** via Vitest
+- Coverage: pools, sessions, registration (including multi-use), payments, notifications, notification preferences (client + Edge Function + database), venmo-parser, courtreserve
 - Run with `npm test`
 
 ### 14. CourtReserve Integration
@@ -129,16 +129,31 @@
 - Database functions + migration for cron scheduling
 - Single `run_automated_notifications()` function handles all types
 
+### 14. Granular Notification Preferences ✅
+**Status**: Complete  
+**Added**: January 25, 2026
+
+Comprehensive notification preference system with per-type email/SMS toggles:
+- **5 notification types**: Session reminders (24h), payment requests, payment reminders, waitlist promotions, session cancellations
+- **Independent toggles**: Email and SMS can be enabled/disabled separately for each type
+- **Settings UI**: Clean table matrix showing all preferences
+- **Twilio compliant**: Separate opt-in for each SMS type (fixes Error 30504)
+- **Backward compatible**: Dual-write to legacy JSONB column during transition
+- **Smart defaults**: Email ON for all, SMS OFF for all (explicit opt-in required)
+- **Database**: New `notification_preferences` table with RLS policies
+- **Edge Function**: Updated to query granular preferences
+- **Tests**: 10 new tests covering all preference operations
+
 ---
 
 ## Future Features 📋
 
 ### Quick Wins (High Impact, Low Effort)
 - **Show committed players in reminder emails** - "Who's playing: Mike, Erik, +3 more" → social proof, increases attendance
-- **Multi-use registration links** - One link, multiple signups → easier sharing in group chats
+- **Welcome email for new pool members** - When someone joins a pool, send them an email listing upcoming sessions they can RSVP to → prevents new members from missing sessions that were proposed before they joined
 - **Google Maps link for court location in emails** - Tap to navigate → reduces confusion
 - **Player can explicitly opt-out of a session** - Stop getting reminders for sessions they're not playing
-- **Payment calculation transparency** - Show breakdown: "Court: $60 ÷ 8 players = $7.50 each" → eliminates confusion about cost splitting
+- **Payment calculation transparency** - Show breakdown: "Court: $60 ÷ 8 players = $7.50 each" → eliminates confusion about cost splitting.
 
 ### High Impact (Worth the Effort)
 - **Session time voting** - Admin proposes 2-3 time slots, players vote, system picks winner → solves coordination problem
@@ -150,7 +165,6 @@
 - **Session comments** - Discussion thread on each session (any pool member can comment, optional email notifications) → improves coordination and communication
 - Court unavailable alert (CourtReserve check for admin) → being handled elsewhere
 - Admin shortfall indicator - Show when admin is covering extra costs
-- Detailed notification preferences (per-type toggles)
 - Custom Supabase auth email templates (branding)
 - Allow player to leave a pool
 
@@ -171,6 +185,13 @@
 - Safari magic link may not complete login (cross-origin redirect)
 - Gmail app → Chrome handoff can lose token
 - SMS requires Twilio toll-free verification
+- Auth callback still not working (all in Chrome on Mac)
+    - I'm logged out
+    - I click a link from my email (Gmail) that directly links me to a session page
+    - I'm redirected to the login page
+    - I login
+    - I get an auth email from supabase and click the link
+    - *I'm directed to the dashboard* - this is wrong, I should be directed to the session page
 
 ---
 
