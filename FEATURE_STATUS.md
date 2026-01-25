@@ -103,8 +103,8 @@
 - See `docs/MULTI_USE_REGISTRATION.md` for details
 
 ### 14. Testing
-- **168 automated tests** via Vitest
-- Coverage: pools, sessions, registration (including multi-use), payments, notifications, venmo-parser, courtreserve
+- **178 automated tests** via Vitest
+- Coverage: pools, sessions, registration (including multi-use), payments, notifications, notification preferences, venmo-parser, courtreserve
 - Run with `npm test`
 
 ### 14. CourtReserve Integration
@@ -129,6 +129,21 @@
 - Database functions + migration for cron scheduling
 - Single `run_automated_notifications()` function handles all types
 
+### 14. Granular Notification Preferences ✅
+**Status**: Complete  
+**Added**: January 25, 2026
+
+Comprehensive notification preference system with per-type email/SMS toggles:
+- **5 notification types**: Session reminders (24h), payment requests, payment reminders, waitlist promotions, session cancellations
+- **Independent toggles**: Email and SMS can be enabled/disabled separately for each type
+- **Settings UI**: Clean table matrix showing all preferences
+- **Twilio compliant**: Separate opt-in for each SMS type (fixes Error 30504)
+- **Backward compatible**: Dual-write to legacy JSONB column during transition
+- **Smart defaults**: Email ON for all, SMS OFF for all (explicit opt-in required)
+- **Database**: New `notification_preferences` table with RLS policies
+- **Edge Function**: Updated to query granular preferences
+- **Tests**: 10 new tests covering all preference operations
+
 ---
 
 ## Future Features 📋
@@ -150,7 +165,6 @@
 - **Session comments** - Discussion thread on each session (any pool member can comment, optional email notifications) → improves coordination and communication
 - Court unavailable alert (CourtReserve check for admin) → being handled elsewhere
 - Admin shortfall indicator - Show when admin is covering extra costs
-- Detailed notification preferences (per-type toggles)
 - Custom Supabase auth email templates (branding)
 - Allow player to leave a pool
 
