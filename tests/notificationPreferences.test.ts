@@ -1,6 +1,5 @@
 import { describe, it, expect, beforeAll } from 'vitest'
-import { supabase } from '../src/lib/supabase'
-import { getFirstPool, createTestSession } from './setup'
+import { getServiceClient, getFirstPool, SKIP_DB_TESTS } from './setup'
 import { 
   getUserPreferences, 
   updatePreference, 
@@ -9,12 +8,25 @@ import {
   NotificationType 
 } from '../src/lib/notificationPreferences'
 
-describe('Notification Preferences', () => {
+/**
+ * Client Library Tests for Notification Preferences
+ * 
+ * Tests the frontend TypeScript library (src/lib/notificationPreferences.ts).
+ * 
+ * REQUIREMENTS:
+ * 1. Local Supabase running: `supabase start`
+ * 2. Migrations applied: `supabase db reset` or `supabase migration up --local`
+ * 
+ * SKIP IN CI:
+ * These tests are automatically skipped in CI environments (no local Supabase).
+ */
+describe.skipIf(SKIP_DB_TESTS)('Notification Preferences', () => {
+  const supabase = getServiceClient()
   let testUserId: string
   let testPoolId: string
 
   beforeAll(async () => {
-    const pool = await getFirstPool()
+    const pool = await getFirstPool(supabase)
     testPoolId = pool.id
     testUserId = pool.owner_id
   })
@@ -74,9 +86,10 @@ describe('Notification Preferences', () => {
 
   it('should initialize default preferences for new user', async () => {
     // Create a test user
-    const { data: authData } = await supabase.auth.signUp({
+    const { data: authData } = await supabase.auth.admin.createUser({
       email: `test-prefs-${Date.now()}@test.com`,
       password: 'test123456',
+      email_confirm: true,
     })
     
     if (!authData.user) throw new Error('Failed to create test user')
@@ -149,9 +162,10 @@ describe('Notification Preferences', () => {
 
   it('should handle missing preferences with defaults', async () => {
     // Create a user without initializing preferences
-    const { data: authData } = await supabase.auth.signUp({
+    const { data: authData } = await supabase.auth.admin.createUser({
       email: `test-no-prefs-${Date.now()}@test.com`,
       password: 'test123456',
+      email_confirm: true,
     })
     
     if (!authData.user) throw new Error('Failed to create test user')

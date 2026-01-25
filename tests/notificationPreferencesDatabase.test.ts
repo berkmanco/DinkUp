@@ -1,37 +1,42 @@
 import { describe, it, expect, beforeAll } from 'vitest'
-import { supabase } from '../src/lib/supabase'
-import { createClient } from '@supabase/supabase-js'
+import { getServiceClient, getAnonClient, SKIP_DB_TESTS } from './setup'
 
 /**
+ * Database Constraint & RLS Policy Tests
+ * 
  * Tests for database constraints, RLS policies, and data integrity
  * of the notification_preferences table.
+ * 
+ * REQUIREMENTS:
+ * 1. Local Supabase running: `supabase start`
+ * 2. Migrations applied: `supabase db reset` or `supabase migration up --local`
+ * 
+ * SKIP IN CI:
+ * These tests are automatically skipped in CI environments (no local Supabase).
  */
-describe('Notification Preferences Database', () => {
+describe.skipIf(SKIP_DB_TESTS)('Notification Preferences Database', () => {
+  const supabase = getServiceClient()
+  const anonClient = getAnonClient()
   let testUserId1: string
   let testUserId2: string
-  let anonClient: ReturnType<typeof createClient>
 
   beforeAll(async () => {
     // Create two test users
-    const { data: user1 } = await supabase.auth.signUp({
+    const { data: user1 } = await supabase.auth.admin.createUser({
       email: `test-db-1-${Date.now()}@test.com`,
       password: 'test123456',
+      email_confirm: true,
     })
-    const { data: user2 } = await supabase.auth.signUp({
+    const { data: user2 } = await supabase.auth.admin.createUser({
       email: `test-db-2-${Date.now()}@test.com`,
       password: 'test123456',
+      email_confirm: true,
     })
 
     if (!user1?.user || !user2?.user) throw new Error('Failed to create test users')
 
     testUserId1 = user1.user.id
     testUserId2 = user2.user.id
-
-    // Create anonymous client
-    anonClient = createClient(
-      process.env.VITE_SUPABASE_URL!,
-      process.env.VITE_SUPABASE_ANON_KEY!
-    )
   })
 
   describe('RLS Policies', () => {

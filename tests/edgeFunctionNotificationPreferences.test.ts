@@ -1,23 +1,30 @@
 import { describe, it, expect, beforeAll } from 'vitest'
-import { supabase } from '../src/lib/supabase'
-import { getFirstPool, createTestSession } from './setup'
+import { getServiceClient, getFirstPool, createTestSession, SKIP_DB_TESTS } from './setup'
 import { updatePreference } from '../src/lib/notificationPreferences'
 
 /**
+ * Edge Function Integration Tests
+ * 
  * These tests verify that the Edge Function's shouldNotifyUser() logic
  * correctly respects granular notification preferences.
  * 
- * NOTE: These are integration tests that require the Edge Function to be deployed.
- * They test the actual notification sending logic, not just the client library.
+ * REQUIREMENTS:
+ * 1. Local Supabase running: `supabase start`
+ * 2. Edge Functions deployed locally: `supabase functions serve`
+ * 3. Migrations applied: `supabase db reset` or `supabase migration up --local`
+ * 
+ * SKIP IN CI:
+ * These tests are automatically skipped in CI environments (no local Supabase).
  */
-describe('Edge Function Notification Preferences Integration', () => {
+describe.skipIf(SKIP_DB_TESTS)('Edge Function Notification Preferences Integration', () => {
+  const supabase = getServiceClient()
   let testUserId: string
   let testPoolId: string
   let testSessionId: string
   let testPlayerId: string
 
   beforeAll(async () => {
-    const pool = await getFirstPool()
+    const pool = await getFirstPool(supabase)
     testPoolId = pool.id
     testUserId = pool.owner_id
 
@@ -32,7 +39,7 @@ describe('Edge Function Notification Preferences Integration', () => {
     testPlayerId = player.id
 
     // Create a test session
-    const session = await createTestSession(testPoolId)
+    const session = await createTestSession(supabase, testPoolId)
     testSessionId = session.id
   })
 
