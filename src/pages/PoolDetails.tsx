@@ -251,61 +251,69 @@ export default function PoolDetails() {
             <h2 className="text-lg font-semibold text-gray-900">Players</h2>
           </div>
           
-          {/* Permanent Registration Link (Admin only) */}
-          {isOwner && (
-            <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-              <div className="flex items-start justify-between gap-2 mb-2">
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm font-medium text-gray-700 mb-1">
-                    Registration Link
-                  </div>
-                  <code className="text-xs text-gray-600 font-mono break-all">
-                    {window.location.origin}/r/{pool.slug}
-                  </code>
+          {/* Registration Link - Visible to all players */}
+          <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+            <div className="flex items-start justify-between gap-2 mb-2">
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-medium text-gray-700 mb-1">
+                  Invite Players
                 </div>
-                <button
-                  onClick={() => {
-                    navigator.clipboard.writeText(`${window.location.origin}/r/${pool.slug}`)
-                    setCopiedToken('pool-slug')
-                    setTimeout(() => setCopiedToken(null), 2000)
-                  }}
-                  className="text-[#3CBBB1] hover:text-[#35a8a0] text-xs whitespace-nowrap px-2 py-1 rounded hover:bg-white transition"
-                >
-                  {copiedToken === 'pool-slug' ? '✓ Copied!' : 'Copy Link'}
-                </button>
+                <code className="text-xs text-gray-600 font-mono break-all">
+                  {window.location.origin}/r/{pool.slug}
+                </code>
               </div>
-              <div className="flex items-center gap-2 text-xs">
-                <label className="flex items-center gap-1.5 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={pool.registration_enabled ?? true}
-                    onChange={async (e) => {
-                      const newValue = e.target.checked
-                      try {
-                        // Optimistically update UI first
-                        setPool(prev => ({ ...prev, registration_enabled: newValue }))
-                        // Then save to database
-                        await togglePoolRegistration(pool.id, newValue)
-                      } catch (err: any) {
-                        // Revert on error
-                        setPool(prev => ({ ...prev, registration_enabled: !newValue }))
-                        setError(err.message || 'Failed to toggle registration')
-                      }
-                    }}
-                    className="h-3.5 w-3.5 text-[#3CBBB1] border-gray-300 rounded focus:ring-[#3CBBB1]"
-                  />
-                  <span className={pool.registration_enabled ?? true ? 'text-green-700 font-medium' : 'text-gray-500'}>
-                    {pool.registration_enabled ?? true ? 'Open' : 'Closed'}
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(`${window.location.origin}/r/${pool.slug}`)
+                  setCopiedToken('pool-slug')
+                  setTimeout(() => setCopiedToken(null), 2000)
+                }}
+                className="text-[#3CBBB1] hover:text-[#35a8a0] text-xs whitespace-nowrap px-2 py-1 rounded hover:bg-white transition"
+              >
+                {copiedToken === 'pool-slug' ? '✓ Copied!' : 'Copy Link'}
+              </button>
+            </div>
+            <div className="flex items-center gap-2 text-xs">
+              {isOwner ? (
+                <>
+                  <label className="flex items-center gap-1.5 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={pool.registration_enabled ?? true}
+                      onChange={async (e) => {
+                        const newValue = e.target.checked
+                        try {
+                          // Optimistically update UI first
+                          setPool(prev => ({ ...prev, registration_enabled: newValue }))
+                          // Then save to database
+                          await togglePoolRegistration(pool.id, newValue)
+                        } catch (err: any) {
+                          // Revert on error
+                          setPool(prev => ({ ...prev, registration_enabled: !newValue }))
+                          setError(err.message || 'Failed to toggle registration')
+                        }
+                      }}
+                      className="h-3.5 w-3.5 text-[#3CBBB1] border-gray-300 rounded focus:ring-[#3CBBB1]"
+                    />
+                    <span className={pool.registration_enabled ?? true ? 'text-green-700 font-medium' : 'text-gray-500'}>
+                      {pool.registration_enabled ?? true ? 'Open' : 'Closed'}
+                    </span>
+                  </label>
+                  <span className="text-gray-500">
+                    {pool.registration_enabled ?? true 
+                      ? '• Anyone with the link can join' 
+                      : '• Registration is disabled'}
                   </span>
-                </label>
+                </>
+              ) : (
                 <span className="text-gray-500">
                   {pool.registration_enabled ?? true 
-                    ? '• Anyone with the link can join' 
-                    : '• Registration is disabled'}
+                    ? '• Share this link to invite others' 
+                    : '• Registration is currently closed'}
                 </span>
-              </div>
+              )}
             </div>
-          )}
+          </div>
           
           {loadingPlayers ? (
             <div className="flex items-center justify-center py-4">
