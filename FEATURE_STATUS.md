@@ -138,6 +138,7 @@
 - **Multi-use registration links** - One link, multiple signups → easier sharing in group chats
 - **Google Maps link for court location in emails** - Tap to navigate → reduces confusion
 - **Player can explicitly opt-out of a session** - Stop getting reminders for sessions they're not playing
+- **Payment calculation transparency** - Show breakdown: "Court: $60 ÷ 8 players = $7.50 each" → eliminates confusion about cost splitting
 
 ### High Impact (Worth the Effort)
 - **Session time voting** - Admin proposes 2-3 time slots, players vote, system picks winner → solves coordination problem
@@ -146,6 +147,7 @@
 - **"Adjust & Re-bill"** - Send supplemental payment requests when costs change → handles real-world court changes
 
 ### Medium Priority
+- **Session comments** - Discussion thread on each session (any pool member can comment, optional email notifications) → improves coordination and communication
 - Court unavailable alert (CourtReserve check for admin) → being handled elsewhere
 - Admin shortfall indicator - Show when admin is covering extra costs
 - Detailed notification preferences (per-type toggles)
