@@ -136,19 +136,33 @@ export default function Settings() {
       setError(null)
       setSuccess(null)
 
-      // Update player profile
+      // Calculate legacy notification preferences (for backward compatibility with Edge Function)
+      // If ANY email preference is enabled, set email: true
+      // If ANY SMS preference is enabled, set sms: true
+      let hasAnyEmail = false
+      let hasAnySms = false
+      notificationPrefs.forEach((prefs) => {
+        if (prefs.email) hasAnyEmail = true
+        if (prefs.sms) hasAnySms = true
+      })
+
+      // Update player profile (including legacy notification_preferences JSONB column)
       const { error: updateError } = await supabase
         .from('players')
         .update({
           name,
           phone: formatPhoneE164(phone),
           venmo_account: venmoAccount,
+          notification_preferences: {
+            email: hasAnyEmail,
+            sms: hasAnySms,
+          },
         })
         .eq('id', player.id)
 
       if (updateError) throw updateError
 
-      // Update notification preferences
+      // Update granular notification preferences (new system)
       const prefUpdates = Array.from(notificationPrefs.entries()).map(([type, prefs]) =>
         updatePreference(user.id, type, prefs.email, prefs.sms)
       )
