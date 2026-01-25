@@ -6,7 +6,6 @@ export type NotificationType =
   | 'payment_reminder'
   | 'waitlist_promotion'
   | 'session_cancelled'
-  | 'pool_invitation'
 
 export interface NotificationPreference {
   id: string
@@ -55,13 +54,6 @@ export const NOTIFICATION_TYPES = {
     supportsEmail: true,
     supportsSMS: false,
   },
-  pool_invitation: {
-    label: 'Pool invitations',
-    description: 'When invited to join a pool',
-    smsDisclosure: null, // Email only
-    supportsEmail: true,
-    supportsSMS: false,
-  },
 } as const
 
 // Default preferences for new users
@@ -71,7 +63,6 @@ const DEFAULT_PREFERENCES: Record<NotificationType, { email: boolean; sms: boole
   payment_reminder: { email: true, sms: false },
   waitlist_promotion: { email: true, sms: false },
   session_cancelled: { email: true, sms: false },
-  pool_invitation: { email: true, sms: false },
 }
 
 /**
