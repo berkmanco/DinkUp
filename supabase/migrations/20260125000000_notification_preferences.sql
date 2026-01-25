@@ -51,13 +51,13 @@ CREATE POLICY "Users can delete own notification preferences"
   USING (auth.uid() = user_id);
 
 -- Migrate existing SMS preferences
--- If user has sms_notifications = true, enable SMS for session reminders and payment requests
+-- If user has notification_preferences->>'sms' = true, enable SMS for session reminders and payment requests
 INSERT INTO notification_preferences (user_id, notification_type, email_enabled, sms_enabled)
 SELECT 
   p.user_id,
   unnest(ARRAY['session_reminder_24h', 'payment_request']) as notification_type,
-  true as email_enabled,
-  COALESCE(p.sms_notifications, false) as sms_enabled
+  COALESCE((p.notification_preferences->>'email')::boolean, true) as email_enabled,
+  COALESCE((p.notification_preferences->>'sms')::boolean, false) as sms_enabled
 FROM players p
 WHERE p.user_id IS NOT NULL
 ON CONFLICT (user_id, notification_type) DO NOTHING;
