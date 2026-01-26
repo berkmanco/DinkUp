@@ -43,11 +43,13 @@ type NotificationType =
   | "waitlist_promoted"    // Player promoted from waitlist
   | "commitment_reminder"  // Remind uncommitted players to opt in
   | "admin_low_commitment" // Alert admin when not enough players committed
-  | "session_cancelled";   // Session has been cancelled
+  | "session_cancelled"    // Session has been cancelled
+  | "player_joined";       // New player joined a pool
 
 interface NotifyRequest {
   type: NotificationType;
   sessionId?: string;
+  poolId?: string;
   playerId?: string;       // For single-player notifications
   playerIds?: string[];    // For batch notifications
   customMessage?: string;  // Optional override message
@@ -136,7 +138,7 @@ serve(async (req: Request) => {
 
   try {
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-    const { type, sessionId, playerId, playerIds, customMessage, testEmail }: NotifyRequest = await req.json();
+    const { type, sessionId, poolId, playerId, playerIds, customMessage, testEmail }: NotifyRequest = await req.json();
 
     if (!type) {
       throw new Error("Missing required field: type");
@@ -183,6 +185,11 @@ serve(async (req: Request) => {
       case "session_cancelled":
         if (!sessionId) throw new Error("sessionId required for session_cancelled");
         results = await notifySessionCancelled(supabase, sessionId);
+        break;
+
+      case "player_joined":
+        if (!poolId || !playerId) throw new Error("poolId and playerId required for player_joined");
+        results = await notifyPlayerJoined(supabase, poolId, playerId);
         break;
 
       default:
@@ -1208,6 +1215,87 @@ async function notifySessionCancelled(supabase: ReturnType<typeof createClient>,
         results.errors.push(`${player.phone}: ${(err as Error).message}`);
         await logNotification(supabase, "session_cancelled", sessionId, player.id, "sms", false, (err as Error).message);
       }
+    }
+  }
+
+  return results;
+}
+
+async function notifyPlayerJoined(supabase: ReturnType<typeof createClient>, poolId: string, playerId: string) {
+  // Get pool details with owner
+  const { data: pool, error: poolError } = await supabase
+    .from("pools")
+    .select("id, name, slug, owner_id")
+    .eq("id", poolId)
+    .single();
+
+  if (poolError || !pool) throw new Error("Pool not found");
+
+  // Get the new player's details
+  const { data: newPlayer, error: newPlayerError } = await supabase
+    .from("players")
+    .select("id, name, email, phone")
+    .eq("id", playerId)
+    .single();
+
+  if (newPlayerError || !newPlayer) throw new Error("Player not found");
+
+  // Get pool owner details
+  const { data: owner, error: ownerError } = await supabase
+    .from("players")
+    .select("id, user_id, name, email, phone")
+    .eq("user_id", pool.owner_id)
+    .single();
+
+  if (ownerError || !owner) {
+    console.log("No owner player record found for pool owner");
+    return { sent: 0, failed: 0, errors: [] };
+  }
+
+  const results = { sent: 0, failed: 0, errors: [] as string[] };
+
+  // Send email to pool owner
+  if (owner.email && await shouldNotifyUser(supabase, owner.user_id, 'session_cancelled', 'email')) {
+    const html = emailTemplate({
+      title: "New Player Joined Your Pool! 🎉",
+      preheader: `${newPlayer.name} just joined ${pool.name}`,
+      body: `
+        <p>Hey ${getFirstName(owner.name)}!</p>
+        <p>Great news! A new player has joined your <strong>${pool.name}</strong> pool:</p>
+        <div style="background: #ecfdf5; padding: 16px; border-radius: 8px; margin: 16px 0; border-left: 4px solid #10b981;">
+          <p style="margin: 0; color: #065f46;"><strong>👤 Name:</strong> ${newPlayer.name}</p>
+          ${newPlayer.email ? `<p style="margin: 8px 0 0 0; color: #065f46;"><strong>📧 Email:</strong> ${newPlayer.email}</p>` : ''}
+          ${newPlayer.phone ? `<p style="margin: 8px 0 0 0; color: #065f46;"><strong>📱 Phone:</strong> ${newPlayer.phone}</p>` : ''}
+        </div>
+        <p>Your pool is growing! 🚀</p>
+      `,
+      ctaText: "View Pool",
+      ctaUrl: `${APP_URL}/p/${pool.slug || pool.id}`,
+    });
+
+    try {
+      await sendEmail(owner.email, `New Player Joined: ${pool.name}`, html);
+      results.sent++;
+      await logNotification(supabase, "player_joined", null, owner.id, "email", true);
+    } catch (err) {
+      results.failed++;
+      results.errors.push(`${owner.email}: ${(err as Error).message}`);
+      await logNotification(supabase, "player_joined", null, owner.id, "email", false, (err as Error).message);
+    }
+  }
+
+  // Send SMS to pool owner
+  if (!SMS_DISABLED && owner.phone && await shouldNotifyUser(supabase, owner.user_id, 'session_cancelled', 'sms')) {
+    const smsMessage = `🏓 ${newPlayer.name} just joined your ${pool.name} pool! View pool: ${APP_URL}/p/${pool.slug || pool.id}`;
+
+    try {
+      await sendSMS(owner.phone, smsMessage);
+      results.sent++;
+      await logNotification(supabase, "player_joined", null, owner.id, "sms", true);
+    } catch (err) {
+      results.failed++;
+      results.errors.push(`${owner.phone}: ${(err as Error).message}`);
+      await logNotification(supabase, "player_joined", null, owner.id, "sms", false, (err as Error).message);
     }
   }
 

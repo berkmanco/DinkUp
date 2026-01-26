@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import { notifyPlayerJoined } from './notifications'
 
 export interface RegistrationLink {
   id: string
@@ -206,6 +207,11 @@ export async function registerPlayer(tokenOrSlug: string, registrationData: Regi
     })
 
   if (poolPlayerError) throw poolPlayerError
+
+  // Notify pool owner about new player (fire-and-forget)
+  notifyPlayerJoined(link.pool_id, player.id).catch((err) => {
+    console.error('Failed to send player joined notification:', err)
+  })
 
   // Only mark link as used if it's a token-based link
   if (isTokenBased && link.id) {

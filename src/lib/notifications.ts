@@ -9,7 +9,8 @@ export type NotificationType =
   | 'payment_reminder'
   | 'session_reminder'
   | 'waitlist_promoted'
-  | 'session_cancelled';
+  | 'session_cancelled'
+  | 'player_joined';
 
 interface NotifyResult {
   success: boolean;
@@ -26,6 +27,7 @@ export async function sendNotification(
   type: NotificationType,
   options: {
     sessionId?: string;
+    poolId?: string;
     playerId?: string;
     customMessage?: string;
   }
@@ -34,6 +36,7 @@ export async function sendNotification(
     body: {
       type,
       sessionId: options.sessionId,
+      poolId: options.poolId,
       playerId: options.playerId,
       customMessage: options.customMessage,
     },
@@ -86,6 +89,16 @@ export async function notifyWaitlistPromoted(
   playerId: string
 ): Promise<NotifyResult> {
   return sendNotification('waitlist_promoted', { sessionId, playerId });
+}
+
+/**
+ * Notify pool owner when a new player joins
+ */
+export async function notifyPlayerJoined(
+  poolId: string,
+  playerId: string
+): Promise<NotifyResult> {
+  return sendNotification('player_joined', { poolId, playerId });
 }
 
 /**
