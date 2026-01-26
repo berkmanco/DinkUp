@@ -332,8 +332,10 @@ export default function PoolDetails() {
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div className="font-medium text-gray-900 min-w-0 break-words">{player.name}</div>
-                    <div className="text-xs text-gray-400 whitespace-nowrap flex-shrink-0">
-                      Joined {new Date(player.joined_at).toLocaleDateString()}
+                    <div className="text-xs text-gray-400 flex-shrink-0">
+                      {/* Show "Joined" label on larger screens, just date on mobile */}
+                      <span className="hidden sm:inline">Joined </span>
+                      {new Date(player.joined_at).toLocaleDateString()}
                     </div>
                   </div>
                   {/* Only show contact info and remove button to pool owners */}
