@@ -149,6 +149,7 @@ Comprehensive notification preference system with per-type email/SMS toggles:
 ## Future Features 📋
 
 ### Quick Wins (High Impact, Low Effort)
+- **Owner notification when someone joins pool** - Email/SMS to pool owner when new player registers → keeps admin informed of pool growth
 - **Show committed players in reminder emails** - "Who's playing: Mike, Erik, +3 more" → social proof, increases attendance
 - **Welcome email for new pool members** - When someone joins a pool, send them an email listing upcoming sessions they can RSVP to → prevents new members from missing sessions that were proposed before they joined
 - **Google Maps link for court location in emails** - Tap to navigate → reduces confusion
@@ -185,6 +186,7 @@ Comprehensive notification preference system with per-type email/SMS toggles:
 - Safari magic link may not complete login (cross-origin redirect)
 - Gmail app → Chrome handoff can lose token
 - SMS requires Twilio toll-free verification
+- **Mobile overflow on Pool Details page** - "Joined" status text is cut off on mobile (appears as "Join") → needs responsive layout fix
 - Auth callback still not working (all in Chrome on Mac)
     - I'm logged out
     - I click a link from my email (Gmail) that directly links me to a session page
