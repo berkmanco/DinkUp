@@ -144,12 +144,43 @@ Comprehensive notification preference system with per-type email/SMS toggles:
 - **Edge Function**: Updated to query granular preferences
 - **Tests**: 10 new tests covering all preference operations
 
+### 15. Session Comments ✅
+**Status**: Complete  
+**Added**: January 26, 2026
+
+Discussion thread system for session coordination:
+- **Comment on sessions**: Any pool member can add comments to sessions they're part of
+- **Real-time updates**: Comments reload after posting/deleting
+- **Email notifications**: Participants get notified when someone comments (optional)
+- **Clean UI**: Chronological list with relative timestamps ("2h ago", "1d ago")
+- **RLS policies**: Only pool members can read/write comments on their sessions
+- **Edit/Delete**: Users can delete their own comments
+- **Database**: New `session_comments` table with proper indexes and triggers
+- **Notification type**: `comment_added` with session and commenter details
+
+### 16. Owner Notifications ✅
+**Status**: Complete  
+**Added**: January 26, 2026
+
+Notify pool owner when players join:
+- **Auto-notification**: Triggered when someone registers via invite link
+- **Email/SMS**: Sends to pool owner with new player details
+- **Player info**: Shows name, email, phone in notification
+- **Fire-and-forget**: Doesn't block registration flow
+- **Pool growth tracking**: Keeps admins informed of pool expansion
+
+### 17. UI Improvements ✅
+**Status**: Complete  
+**Added**: January 26, 2026
+
+- **Mobile overflow fix**: Fixed "Joined" date being cut off on Pool Details player list (mobile responsive)
+- Responsive date display: "Joined" label hidden on mobile, shows only date
+
 ---
 
 ## Future Features 📋
 
 ### Quick Wins (High Impact, Low Effort)
-- **Owner notification when someone joins pool** - Email/SMS to pool owner when new player registers → keeps admin informed of pool growth
 - **Show committed players in reminder emails** - "Who's playing: Mike, Erik, +3 more" → social proof, increases attendance
 - **Welcome email for new pool members** - When someone joins a pool, send them an email listing upcoming sessions they can RSVP to → prevents new members from missing sessions that were proposed before they joined
 - **Google Maps link for court location in emails** - Tap to navigate → reduces confusion
@@ -163,7 +194,6 @@ Comprehensive notification preference system with per-type email/SMS toggles:
 - **"Adjust & Re-bill"** - Send supplemental payment requests when costs change → handles real-world court changes
 
 ### Medium Priority
-- **Session comments** - Discussion thread on each session (any pool member can comment, optional email notifications) → improves coordination and communication
 - Court unavailable alert (CourtReserve check for admin) → being handled elsewhere
 - Admin shortfall indicator - Show when admin is covering extra costs
 - Custom Supabase auth email templates (branding)
@@ -186,7 +216,6 @@ Comprehensive notification preference system with per-type email/SMS toggles:
 - Safari magic link may not complete login (cross-origin redirect)
 - Gmail app → Chrome handoff can lose token
 - SMS requires Twilio toll-free verification
-- **Mobile overflow on Pool Details page** - "Joined" status text is cut off on mobile (appears as "Join") → needs responsive layout fix
 - Auth callback still not working (all in Chrome on Mac)
     - I'm logged out
     - I click a link from my email (Gmail) that directly links me to a session page
