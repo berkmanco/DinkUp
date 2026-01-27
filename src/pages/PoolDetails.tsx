@@ -246,7 +246,7 @@ export default function PoolDetails() {
 
       <div className="grid sm:grid-cols-2 gap-4 sm:gap-6">
         {/* Players Section */}
-        <div className="bg-white rounded-lg shadow p-4 sm:p-6">
+        <div className="bg-white rounded-lg shadow p-4 sm:p-6 overflow-hidden min-w-0">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold text-gray-900">Players</h2>
           </div>
@@ -331,25 +331,33 @@ export default function PoolDetails() {
                   className="p-3 bg-gray-50 rounded-lg overflow-hidden"
                 >
                   <div className="flex items-start justify-between gap-2">
-                    <div className="font-medium text-gray-900 min-w-0 break-words">{player.name}</div>
-                    <div className="text-xs text-gray-400 whitespace-nowrap flex-shrink-0">
-                      Joined {new Date(player.joined_at).toLocaleDateString()}
+                    <div className="font-medium text-gray-900 min-w-0 break-words flex-1">{player.name}</div>
+                    <div className="text-xs text-gray-400 whitespace-nowrap">
+                      {/* Show "Joined" label on larger screens, just date on mobile */}
+                      <span className="hidden sm:inline">Joined </span>
+                      <span className="hidden sm:inline">
+                        {new Date(player.joined_at).toLocaleDateString()}
+                      </span>
+                      {/* Short date format for mobile (1/20) */}
+                      <span className="sm:hidden">
+                        {new Date(player.joined_at).toLocaleDateString('en-US', { month: 'numeric', day: 'numeric' })}
+                      </span>
                     </div>
                   </div>
                   {/* Only show contact info and remove button to pool owners */}
                   {isOwner && (
-                    <div className="flex items-end justify-between mt-1">
-                      <div className="text-sm text-gray-500 space-y-0.5">
+                    <div className="flex items-end justify-between mt-1 gap-2">
+                      <div className="text-sm text-gray-500 space-y-0.5 min-w-0 flex-1">
                         {player.email && (
                           <div className="truncate">{player.email}</div>
                         )}
                         {player.phone && (
-                          <div>{formatPhone(player.phone)}</div>
+                          <div className="truncate">{formatPhone(player.phone)}</div>
                         )}
                       </div>
                       <button
                         onClick={() => handleRemovePlayer(player.id, player.name)}
-                        className="text-xs text-red-500 hover:text-red-700 hover:underline ml-2"
+                        className="text-xs text-red-500 hover:text-red-700 hover:underline flex-shrink-0"
                       >
                         Remove
                       </button>
@@ -574,7 +582,7 @@ export default function PoolDetails() {
         </div>
 
         {/* Sessions Section */}
-        <div className="bg-white rounded-lg shadow p-4 sm:p-6">
+        <div className="bg-white rounded-lg shadow p-4 sm:p-6 overflow-hidden min-w-0">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold text-gray-900">
               Sessions
