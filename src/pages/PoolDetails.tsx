@@ -331,11 +331,17 @@ export default function PoolDetails() {
                   className="p-3 bg-gray-50 rounded-lg overflow-hidden"
                 >
                   <div className="flex items-start justify-between gap-2">
-                    <div className="font-medium text-gray-900 min-w-0 break-words">{player.name}</div>
-                    <div className="text-xs text-gray-400 flex-shrink-0">
+                    <div className="font-medium text-gray-900 min-w-0 break-words flex-1">{player.name}</div>
+                    <div className="text-xs text-gray-400 whitespace-nowrap">
                       {/* Show "Joined" label on larger screens, just date on mobile */}
                       <span className="hidden sm:inline">Joined </span>
-                      {new Date(player.joined_at).toLocaleDateString()}
+                      <span className="hidden sm:inline">
+                        {new Date(player.joined_at).toLocaleDateString()}
+                      </span>
+                      {/* Short date format for mobile (1/20) */}
+                      <span className="sm:hidden">
+                        {new Date(player.joined_at).toLocaleDateString('en-US', { month: 'numeric', day: 'numeric' })}
+                      </span>
                     </div>
                   </div>
                   {/* Only show contact info and remove button to pool owners */}
