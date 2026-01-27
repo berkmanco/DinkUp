@@ -627,7 +627,7 @@ export default function SessionDetails() {
 
       <div className="grid sm:grid-cols-2 gap-6">
         {/* Session Info */}
-        <div className="bg-white rounded-lg shadow p-6">
+        <div className="bg-white rounded-lg shadow p-6 overflow-hidden min-w-0">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">
             Session Details
           </h2>
@@ -716,7 +716,7 @@ export default function SessionDetails() {
         </div>
 
         {/* Participants Section */}
-        <div className="bg-white rounded-lg shadow p-6">
+        <div className="bg-white rounded-lg shadow p-6 overflow-hidden min-w-0">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">
             Participants
           </h2>
