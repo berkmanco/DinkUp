@@ -1253,7 +1253,7 @@ async function notifyPlayerJoined(supabase: ReturnType<typeof createClient>, poo
 
   if (newPlayerError || !newPlayer) throw new Error("Player not found");
 
-  // Get pool owner details
+  // Get pool owner details from players table
   const { data: owner, error: ownerError } = await supabase
     .from("players")
     .select("id, user_id, name, email, phone")
@@ -1261,11 +1261,58 @@ async function notifyPlayerJoined(supabase: ReturnType<typeof createClient>, poo
     .single();
 
   if (ownerError || !owner) {
-    console.log("No owner player record found for pool owner");
-    return { sent: 0, failed: 0, errors: [] };
+    console.log("No owner player record found, fetching from auth.users", ownerError);
+    // Try to get email from auth.users directly
+    const { data: authUser } = await supabase.auth.admin.getUserById(pool.owner_id);
+    
+    if (!authUser.user?.email) {
+      console.log("No email found for pool owner");
+      return { sent: 0, failed: 0, errors: [] };
+    }
+    
+    // Create a mock owner object for email sending
+    const mockOwner = {
+      id: pool.owner_id,
+      user_id: pool.owner_id,
+      name: authUser.user.email.split('@')[0], // Use email prefix as name
+      email: authUser.user.email,
+      phone: null
+    };
+    
+    const results = { sent: 0, failed: 0, errors: [] as string[] };
+    const html = emailTemplate({
+      title: "New Player Joined Your Pool! 🎉",
+      preheader: `${newPlayer.name} just joined ${pool.name}`,
+      body: `
+        <p>Hey there!</p>
+        <p>Great news! A new player has joined your <strong>${pool.name}</strong> pool:</p>
+        <div style="background: #ecfdf5; padding: 16px; border-radius: 8px; margin: 16px 0; border-left: 4px solid #10b981;">
+          <p style="margin: 0; color: #065f46;"><strong>👤 Name:</strong> ${newPlayer.name}</p>
+          ${newPlayer.email ? `<p style="margin: 8px 0 0 0; color: #065f46;"><strong>📧 Email:</strong> ${newPlayer.email}</p>` : ''}
+          ${newPlayer.phone ? `<p style="margin: 8px 0 0 0; color: #065f46;"><strong>📱 Phone:</strong> ${newPlayer.phone}</p>` : ''}
+        </div>
+        <p>Your pool is growing! 🚀</p>
+      `,
+      ctaText: "View Pool",
+      ctaUrl: `${APP_URL}/p/${pool.slug || pool.id}`,
+    });
+
+    try {
+      await sendEmail(mockOwner.email, `New Player Joined: ${pool.name}`, html);
+      results.sent++;
+      console.log(`Sent player_joined email to pool owner (from auth.users): ${mockOwner.email}`);
+    } catch (err) {
+      results.failed++;
+      results.errors.push(`${mockOwner.email}: ${(err as Error).message}`);
+      console.error("Failed to send player_joined email:", err);
+    }
+    
+    return results;
   }
 
   const results = { sent: 0, failed: 0, errors: [] as string[] };
+
+  console.log(`Found owner player record: ${owner.email}, sending notification`);
 
   // Send email to pool owner (always send admin notifications)
   if (owner.email) {
@@ -1290,11 +1337,15 @@ async function notifyPlayerJoined(supabase: ReturnType<typeof createClient>, poo
       await sendEmail(owner.email, `New Player Joined: ${pool.name}`, html);
       results.sent++;
       await logNotification(supabase, "player_joined", null, owner.id, "email", true);
+      console.log(`Successfully sent player_joined email to: ${owner.email}`);
     } catch (err) {
       results.failed++;
       results.errors.push(`${owner.email}: ${(err as Error).message}`);
       await logNotification(supabase, "player_joined", null, owner.id, "email", false, (err as Error).message);
+      console.error(`Failed to send player_joined email to ${owner.email}:`, err);
     }
+  } else {
+    console.log(`Owner has no email address: ${owner.name}`);
   }
 
   // Send SMS to pool owner (respect SMS preferences)
