@@ -246,7 +246,7 @@ export default function PoolDetails() {
 
       <div className="grid sm:grid-cols-2 gap-4 sm:gap-6">
         {/* Players Section */}
-        <div className="bg-white rounded-lg shadow p-4 sm:p-6">
+        <div className="bg-white rounded-lg shadow p-4 sm:p-6 overflow-hidden min-w-0">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold text-gray-900">Players</h2>
           </div>
@@ -582,7 +582,7 @@ export default function PoolDetails() {
         </div>
 
         {/* Sessions Section */}
-        <div className="bg-white rounded-lg shadow p-4 sm:p-6">
+        <div className="bg-white rounded-lg shadow p-4 sm:p-6 overflow-hidden min-w-0">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold text-gray-900">
               Sessions
