@@ -346,18 +346,18 @@ export default function PoolDetails() {
                   </div>
                   {/* Only show contact info and remove button to pool owners */}
                   {isOwner && (
-                    <div className="flex items-end justify-between mt-1">
-                      <div className="text-sm text-gray-500 space-y-0.5">
+                    <div className="flex items-end justify-between mt-1 gap-2">
+                      <div className="text-sm text-gray-500 space-y-0.5 min-w-0 flex-1">
                         {player.email && (
                           <div className="truncate">{player.email}</div>
                         )}
                         {player.phone && (
-                          <div>{formatPhone(player.phone)}</div>
+                          <div className="truncate">{formatPhone(player.phone)}</div>
                         )}
                       </div>
                       <button
                         onClick={() => handleRemovePlayer(player.id, player.name)}
-                        className="text-xs text-red-500 hover:text-red-700 hover:underline ml-2"
+                        className="text-xs text-red-500 hover:text-red-700 hover:underline flex-shrink-0"
                       >
                         Remove
                       </button>
